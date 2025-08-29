@@ -1,0 +1,9 @@
+release_name: build-portal
+k8s_namespace: build-portal
+gateway_host: builds.example.com
+gcp_project_id: "my-project"
+chart_path: "{{ playbook_dir }}/../../build-portal"
+image_tag: "latest"
+kubeconfig: "~/.kube/config"
+postgres_user: "postgres"
+postgres_db: "postgres"

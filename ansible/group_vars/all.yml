@@ -1,0 +1,34 @@
+# Nom du release + namespace peuvent être override par inventaire
+release_name: build-portal
+k8s_namespace: build-portal
+
+# Chemin vers le chart local (override possible par inventaire)
+chart_path: "{{ playbook_dir }}/../build-portal"
+
+# Image
+image_repository: "europe-west1-docker.pkg.dev/my-project/main/build-portal-v2"
+image_tag: "latest"  # override avec: -e "image_tag=$(git rev-parse --short HEAD)"
+
+# Gateway API / DNS
+gateway_name: "cluster-gateway"
+gateway_namespace: "gateway-system"
+gateway_section: "https"
+gateway_annotations: {}
+
+# App (env NON sensibles)
+google_allowed_domain: "example.org"
+report_bucket_name: "test-reports"
+jenkins_url: "https://jenkins-production.example.com/job/Unity-LTS-Tests/"
+
+# Kubeconfig (si besoin d’un chemin spécifique par inventaire)
+kubeconfig: "~/.kube/config"
+
+# Secret GCP monté (si gcp_sa_key_json est fourni)
+google_sa_secret_name: "gcp-sa"
+mount_google_sa: true
+
+# Health path
+health_path: "/healthz"
+
+# ImagePullSecrets (si registre privé)
+image_pull_secrets: []  # ex: ["gcr-json-key"]

@@ -1,0 +1,19 @@
+App exposed via Gateway API:
+
+  Host: {{ .Values.gateway.host }}
+
+Check:
+  kubectl -n {{ .Release.Namespace }} get httproute {{ include "build-portal.fullname" . }} -o yaml
+
+If ExternalDNS uses source=gwapi, the DNS record will be created automatically
+from HTTPRoute.hostnames. If you use source=service, set the annotation
+external-dns.alpha.kubernetes.io/hostname on the Service via values.yaml.
+
+API:
+  - /healthz
+  - /api/stats  (protected if your code enforces it; otherwise the route remains public)
+  - /api/parse-and-save (X-API-KEY required: .Values.api.key)
+
+Database:
+  DATABASE_URL is injected automatically. For external Postgres, set
+  values.externalPostgresql.enabled=true and provide host/port/user/pass/db.

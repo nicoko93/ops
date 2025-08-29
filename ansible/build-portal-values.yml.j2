@@ -1,0 +1,59 @@
+# values for the build-portal chart (rendered by Ansible)
+
+image:
+  repository: "{{ image_repository }}"
+  tag: "{{ image_tag }}"
+  pullPolicy: IfNotPresent
+
+gateway:
+  enabled: true
+  host: "{{ gateway_host }}"
+  annotations:
+{{ (gateway_annotations | default({})) | to_nice_yaml | indent(4, True) }}
+  parentRef:
+    name: "{{ gateway_name }}"
+    namespace: "{{ gateway_namespace }}"
+    sectionName: "{{ gateway_section }}"
+
+# Non-secret env (via ConfigMap)
+config:
+  GOOGLE_ALLOWED_DOMAIN: "{{ google_allowed_domain }}"
+  GCP_PROJECT_ID: "{{ gcp_project_id }}"
+  REPORT_BUCKET_NAME: "{{ report_bucket_name }}"
+  JENKINS_DEFAULT_URL: "{{ jenkins_url }}"
+  GCP_SA_FILE: "/var/secrets/google/key.json"
+  POSTGRES_USER: "{{ postgres_user }}"
+  POSTGRES_DB: "{{ postgres_db }}"  
+
+# Create & mount a Secret from SA key JSON (if provided)
+gcpServiceAccount:
+  enabled: {{ (mount_google_sa | default(true)) | bool }}
+  name: "{{ google_sa_secret_name | default('gcp-sa') }}"
+  keyJson: |-
+{{ vault_gcp_sa_key_json | default('') | indent(4, True) }}
+
+# If you already have a pre-created Secret, put its name here; else leave empty.
+googleServiceAccountKeySecret: "{{ (mount_google_sa and (vault_gcp_sa_key_json | default('') | length > 0)) | ternary(google_sa_secret_name, '') }}"
+
+# Secrets (chart consumes them via envFrom)
+secrets:
+  DATABASE_URL: "{{ vault_database_url }}"
+  API_KEY: "{{ vault_api_key }}"
+  GOOGLE_CLIENT_ID: "{{ vault_google_client_id }}"
+  GOOGLE_CLIENT_SECRET: "{{ vault_google_client_secret }}"
+  POSTGRES_PASSWORD: "{{ vault_postgres_password }}"
+  VAULT_GCP_SA_KEY_JSON: {{ vault_gcp_sa_key_json | to_json }}
+
+# Health
+health:
+  path: "{{ health_path }}"
+
+# ImagePullSecrets (list)
+imagePullSecrets:
+{{ (image_pull_secrets | default([])) | to_nice_yaml | indent(2, True) }}
+
+
+database:
+  createSecret: true
+  secretKey: DATABASE_URL
+  url: "{{ vault_database_url }}"

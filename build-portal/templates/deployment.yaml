@@ -1,0 +1,128 @@
+{{- $secretName := default (include "build-portal.fullname" .) (get .Values.secrets "name") -}}
+{{- $saJSON := (and .Values.secrets (get .Values.secrets "VAULT_GCP_SA_KEY_JSON")) -}}
+{{- $hasSA := not (empty $saJSON) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "build-portal.fullname" . }}
+  labels:
+    {{- include "build-portal.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "build-portal.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "build-portal.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "build-portal.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort | default 8080 }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "build-portal.fullname" . }}-env
+            {{- if .Values.secrets }}
+            - secretRef:
+                name: {{ $secretName }}
+            {{- end }}
+            {{- range $i, $src := .Values.extraEnvFrom }}
+            {{- if $src.secretRef }}
+            - secretRef:
+                name: {{ $src.secretRef }}
+            {{- else if $src.configMapRef }}
+            - configMapRef:
+                name: {{ $src.configMapRef }}
+            {{- end }}
+            {{- end }}
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+          {{- if or $hasSA .Values.volumeMounts }}
+          volumeMounts:
+            {{- if $hasSA }}
+            - name: gcp-sa
+              mountPath: /var/secrets/google/key.json
+              subPath: key.json
+              readOnly: true
+            {{- end }}
+            {{- if .Values.volumeMounts }}
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+            {{- end }}
+          {{- end }}
+
+      {{- if or $hasSA .Values.volumes }}
+      volumes:
+        {{- if $hasSA }}
+        - name: gcp-sa
+          secret:
+            secretName: {{ $secretName }}
+            items:
+              - key: VAULT_GCP_SA_KEY_JSON
+                path: key.json
+        {{- end }}
+        {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+        {{- end }}
+      {{- end }}
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

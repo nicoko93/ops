@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="flex gap-6">
+  <!-- Sidebar gauche : index des buckets -->
+  <aside class="hidden md:block w-64 shrink-0">
+    <nav class="sticky top-24 space-y-2">
+      <div class="text-xs uppercase tracking-wide text-slate-500">Quick nav</div>
+      <a href="#latest" class="block px-3 py-2 rounded hover:bg-slate-100">🕒 Last builds</a>
+
+      <div class="mt-4 text-xs uppercase tracking-wide text-slate-500">Buckets</div>
+      <div class="space-y-1">
+        {% for bucket, bucket_items in sections %}
+          {% set anchor_id = 'bucket-' ~ bucket|replace('.','-')|replace('_','-')|replace('/','-') %}
+          <a href="#{{ anchor_id }}"
+             class="flex items-center justify-between px-3 py-2 rounded hover:bg-slate-100">
+            <span class="truncate">🪣 {{ bucket }}</span>
+            <span class="ml-2 inline-flex items-center rounded bg-slate-200 px-2 text-xs">{{ bucket_items|length }}</span>
+          </a>
+        {% endfor %}
+      </div>
+
+      <a href="#reports" class="block mt-4 px-3 py-2 rounded hover:bg-slate-100">📄 Reports</a>
+    </nav>
+  </aside>
+
+  <!-- Contenu principal -->
+  <div class="flex-1 min-w-0">
+    <!-- Last builds -->
+    <section id="latest" class="mb-10 scroll-mt-24">
+      <h2 class="text-xl font-semibold mb-3">Last builds</h2>
+      <div class="overflow-auto border rounded">
+        {% set items = recent %}
+        {% include '_table_builds.html' %}
+      </div>
+    </section>
+
+    <!-- Buckets GCS -->
+    <section id="gcs" class="space-y-8">
+      <h2 class="text-xl font-semibold">Buckets GCS</h2>
+
+      {% for bucket, bucket_items in sections %}
+        {% set anchor_id = 'bucket-' ~ bucket|replace('.','-')|replace('_','-')|replace('/','-') %}
+        <div id="{{ anchor_id }}" class="mt-4 scroll-mt-24">
+          <h3 class="font-medium mb-2 flex items-center">
+            🪣 <span class="ml-2">Bucket: {{ bucket }}</span>
+            <span class="ml-3 text-xs rounded bg-slate-200 px-2">{{ bucket_items|length }} objects</span>
+          </h3>
+          <div class="overflow-auto border rounded">
+            {% set items = bucket_items %}
+            {% include '_table_builds.html' %}
+          </div>
+        </div>
+      {% endfor %}
+    </section>
+
+    <!-- Reports -->
+    <section id="reports" class="mt-10 scroll-mt-24">
+      <h2 class="text-xl font-semibold mb-3">Rapports de tests</h2>
+      <div class="overflow-auto border rounded">
+        <table class="w-full text-sm" data-sortable>
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="p-2 text-left">Report</th>
+              <th class="p-2 text-left">Date (UTC)</th>
+              <th class="p-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in reports %}
+            <tr class="border-t">
+              <td class="p-2 break-all">{{ r.key }}</td>
+              <td class="p-2">{{ r.time_created.strftime('%Y-%m-%d %H:%M:%S') if r.time_created else '-' }}</td>
+              <td class="p-2 text-right">
+                <a class="underline" href="/static/reports/index.html?file={{ r.key }}" target="_blank" rel="noopener">Open</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<style>
+  [id] { scroll-margin-top: 6rem; } /* pour passer sous le header sticky */
+</style>
+
+{% endblock %}

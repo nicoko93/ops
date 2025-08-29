@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Build Portal</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any">
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="{{ url_for('static', filename='main.js') }}"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <header class="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="font-bold text-lg">🏗️ Build Portal</div>
+      <nav class="text-sm flex items-center gap-3">
+        <a href="#latest" class="hover:underline">Last builds</a>
+        <a href="#gcs" class="hover:underline">Buckets</a>
+        <a href="#reports" class="hover:underline">Reports</a>
+        <a href="/api/stats" class="hover:underline">Stats API</a>
+        {% if user %}
+          <span class="text-slate-500">{{ user.email }}</span>
+          <a href="/logout" class="px-3 py-1 rounded border">Logout</a>
+        {% else %}
+          <a href="/login" class="px-3 py-1 rounded bg-slate-900 text-white">Login</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

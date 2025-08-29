@@ -1,0 +1,126 @@
+from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Any
+from google.cloud import storage
+from google.oauth2 import service_account
+import boto3
+from flask import current_app
+
+def gcs_client():
+    creds = service_account.Credentials.from_service_account_file(
+        current_app.config["GCP_SA_FILE"]
+    )
+    return storage.Client(credentials=creds, project=current_app.config["GCP_PROJECT_ID"])
+
+def list_gcs_recent_buckets(days: int, limit: int) -> List[Dict[str, Any]]:
+    client = gcs_client()
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    out: List[Dict[str, Any]] = []
+    for bucket_name in current_app.config["GCS_BUCKETS"]:
+        bucket = client.bucket(bucket_name)
+        for blob in bucket.list_blobs():
+            if blob.time_created and blob.time_created > since:
+                out.append({
+                    "provider": "gcs",
+                    "bucket": bucket_name,
+                    "key": blob.name,
+                    "name": (blob.name.split("/")[-1] or blob.name),
+                    "time_created": blob.time_created,
+                    "size": blob.size,
+                })
+    out.sort(key=lambda x: x["time_created"], reverse=True)
+    return out[:limit]
+
+def list_gcs_bucket(bucket: str) -> List[Dict[str, Any]]:
+    client = gcs_client()
+    bucket_ref = client.bucket(bucket)
+    out: List[Dict[str, Any]] = []
+    for blob in bucket_ref.list_blobs():
+        out.append({
+            "provider": "gcs",
+            "bucket": bucket,
+            "key": blob.name,
+            "name": (blob.name.split("/")[-1] or blob.name),
+            "time_created": blob.time_created,
+            "size": blob.size,
+        })
+    out.sort(key=lambda x: x["time_created"], reverse=True)
+    return out
+
+def s3_client():
+    return boto3.client(
+        "s3",
+        aws_access_key_id=current_app.config.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=current_app.config.get("AWS_SECRET_ACCESS_KEY"),
+        region_name=current_app.config.get("AWS_REGION"),
+    )
+
+def list_s3_recent(days: int, limit: int) -> List[Dict[str, Any]]:
+    if not current_app.config.get("AWS_ACCESS_KEY_ID"):
+        return []
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    out: List[Dict[str, Any]] = []
+    client = s3_client()
+    for source in current_app.config["S3_SOURCES"].split(";"):
+        if not source:
+            continue
+        bucket, prefix = source.split(":", 1)
+        resp = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+        for obj in resp.get("Contents", []):
+            if obj["LastModified"] > since:
+                key = obj["Key"]
+                out.append({
+                    "provider": "s3",
+                    "bucket": bucket,
+                    "key": key,
+                    "name": key[len(prefix):] if key.startswith(prefix) else key,
+                    "time_created": obj["LastModified"],
+                    "size": obj["Size"],
+                })
+    out.sort(key=lambda x: x["time_created"], reverse=True)
+    return out[:limit]
+
+def gcs_signed_url(bucket: str, key: str, seconds: int = 3600) -> str:
+    client = gcs_client()
+    blob = client.bucket(bucket).blob(key)
+    return blob.generate_signed_url(version="v4", expiration=seconds)
+
+def s3_signed_url(bucket: str, key: str, seconds: int = 3600) -> str:
+    client = s3_client()
+    return client.generate_presigned_url(
+        "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=seconds
+    )
+
+def list_reports() -> List[Dict[str, Any]]:
+    """Return REPORT_BUCKET + CC_REPORT_PREFIX (GCS)."""
+    client = gcs_client()
+    reports: List[Dict[str, Any]] = []
+
+    # Old reports bucket
+    bucket_old = client.bucket(current_app.config["REPORT_BUCKET"])
+    for b in bucket_old.list_blobs():
+        reports.append({
+            "bucket": bucket_old.name,
+            "key": b.name,
+            "time_created": b.time_created,
+        })
+
+    # Control Center aggregated prefix
+    cc_full = current_app.config["CC_REPORT_PREFIX"]
+    if "/" in cc_full:
+        cc_bucket, cc_prefix = cc_full.split("/", 1)
+    else:
+        cc_bucket, cc_prefix = cc_full, ""
+
+    bucket_new = client.bucket(cc_bucket)
+    for b in bucket_new.list_blobs(prefix=cc_prefix):
+        if b.name == cc_prefix:
+            continue
+        reports.append({
+            "bucket": cc_bucket,
+            "key": b.name,
+            "time_created": b.time_created,
+        })
+
+    reports.sort(key=lambda x: x["time_created"], reverse=True)
+    return reports
+

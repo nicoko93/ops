@@ -1,0 +1,12 @@
+apiVersion: v2
+name: build-portal
+description: Build Portal (Flask) + PostgreSQL, exposé via Gateway API
+type: application
+version: 0.2.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: 15.5.21
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

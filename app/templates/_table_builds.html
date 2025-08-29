@@ -1,0 +1,28 @@
+<table class="w-full text-sm" data-sortable>
+  <thead class="bg-slate-100">
+    <tr>
+      <th class="p-2 text-left">Bucket</th>
+      <th class="p-2 text-left">Artifact</th>
+      <th class="p-2 text-left">Date (UTC)</th>
+      <th class="p-2 text-left">Size</th>
+      <th class="p-2"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for it in items %}
+    <tr class="border-t">
+      <td class="p-2">{{ it.bucket }}</td>
+      <td class="p-2 font-medium truncate">{{ it.name }}</td>
+      <td class="p-2">{{ it.time_created.strftime('%Y-%m-%d %H:%M:%S') if it.time_created else '-' }}</td>
+      <td class="p-2">{{ '%.2f'|format((it.size or 0) / (1024*1024)) }} MB</td>
+      <td class="p-2 text-right">
+        {% if it.provider == 'gcs' %}
+          <a class="underline" href="/download/gcs/{{ it.bucket }}/{{ it.key }}">Download</a>
+        {% else %}
+          <a class="underline" href="/download/s3/{{ it.bucket }}/{{ it.key }}">Download</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

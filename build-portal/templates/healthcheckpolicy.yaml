@@ -1,0 +1,32 @@
+{{- if .Values.gkeHealthCheckPolicy.enabled }}
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ include "build-portal.fullname" . }}-hc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "build-portal.labels" . | nindent 4 }}
+  {{- with .Values.gkeHealthCheckPolicy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  default:
+    checkIntervalSec: {{ .Values.gkeHealthCheckPolicy.checkIntervalSec }}
+    timeoutSec: {{ .Values.gkeHealthCheckPolicy.timeoutSec }}
+    healthyThreshold: {{ .Values.gkeHealthCheckPolicy.healthyThreshold }}
+    unhealthyThreshold: {{ .Values.gkeHealthCheckPolicy.unhealthyThreshold }}
+    config:
+      type: HTTP
+      httpHealthCheck:
+        requestPath: {{ .Values.gkeHealthCheckPolicy.requestPath | quote }}
+        {{- if .Values.gkeHealthCheckPolicy.port }}
+        port: {{ .Values.gkeHealthCheckPolicy.port }}
+        {{- else }}
+        portSpecification: USE_SERVING_PORT
+        {{- end }}
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ include "build-portal.fullname" . }}
+{{- end }}

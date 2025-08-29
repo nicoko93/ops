@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: build-portal-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-buildportal}
+      POSTGRES_USER: ${POSTGRES_USER:-buildportal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-buildportal}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-buildportal} -d ${POSTGRES_DB:-buildportal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    container_name: build-portal-app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-buildportal}:${POSTGRES_PASSWORD:-buildportal}@db:5432/${POSTGRES_DB:-buildportal}
+      GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:-}
+      GCP_SA_FILE: /var/secrets/google/key.json
+    volumes:
+      - ./key.json:/var/secrets/google/key.json:ro
+
+volumes:
+  pgdata:

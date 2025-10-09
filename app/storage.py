@@ -11,22 +11,40 @@ def gcs_client():
     )
     return storage.Client(credentials=creds, project=current_app.config["GCP_PROJECT_ID"])
 
+def _extract_gcs_meta(blob) -> Dict[str, Any]:
+    """Lit les métadonnées custom (x-goog-meta-*) déjà présentes sur le blob.
+    Nécessite que list_blobs(...) ait été appelé avec projection='full'."""
+    m = getattr(blob, "metadata", None) or {}
+    commit = m.get("commit")
+    return {
+        "commit":       commit,
+        "commit_short": m.get("commit-short") or (commit[:8] if commit else None),
+        "author":       m.get("author"),
+        "message":      m.get("message"),
+        "version":      m.get("version"),
+        "environment":  m.get("environment"),
+        "branch":       m.get("branch"),
+    }
+
 def list_gcs_recent_buckets(days: int, limit: int) -> List[Dict[str, Any]]:
     client = gcs_client()
     since = datetime.now(timezone.utc) - timedelta(days=days)
     out: List[Dict[str, Any]] = []
     for bucket_name in current_app.config["GCS_BUCKETS"]:
         bucket = client.bucket(bucket_name)
-        for blob in bucket.list_blobs():
+        # projection='full' pour inclure metadata dans la réponse de listing
+        for blob in bucket.list_blobs(projection="full"):
             if blob.time_created and blob.time_created > since:
-                out.append({
+                it = {
                     "provider": "gcs",
                     "bucket": bucket_name,
                     "key": blob.name,
                     "name": (blob.name.split("/")[-1] or blob.name),
                     "time_created": blob.time_created,
                     "size": blob.size,
-                })
+                }
+                it["meta"] = _extract_gcs_meta(blob)
+                out.append(it)
     out.sort(key=lambda x: x["time_created"], reverse=True)
     return out[:limit]
 
@@ -34,15 +52,18 @@ def list_gcs_bucket(bucket: str) -> List[Dict[str, Any]]:
     client = gcs_client()
     bucket_ref = client.bucket(bucket)
     out: List[Dict[str, Any]] = []
-    for blob in bucket_ref.list_blobs():
-        out.append({
+    # projection='full' pour inclure metadata dans la réponse de listing
+    for blob in bucket_ref.list_blobs(projection="full"):
+        it = {
             "provider": "gcs",
             "bucket": bucket,
             "key": blob.name,
             "name": (blob.name.split("/")[-1] or blob.name),
             "time_created": blob.time_created,
             "size": blob.size,
-        })
+        }
+        it["meta"] = _extract_gcs_meta(blob)
+        out.append(it)
     out.sort(key=lambda x: x["time_created"], reverse=True)
     return out
 
@@ -123,4 +144,3 @@ def list_reports() -> List[Dict[str, Any]]:
 
     reports.sort(key=lambda x: x["time_created"], reverse=True)
     return reports
-

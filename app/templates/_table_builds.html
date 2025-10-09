@@ -12,7 +12,20 @@
     {% for it in items %}
     <tr class="border-t">
       <td class="p-2">{{ it.bucket }}</td>
-      <td class="p-2 font-medium truncate">{{ it.name }}</td>
+      <td class="p-2 font-medium truncate">
+        {{ it.name }}
+        {% if it.meta %}
+          <div class="text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis" title="{{ it.meta.message or '' }}">
+            {% if it.meta.commit_short %}<span class="font-mono">{{ it.meta.commit_short }}</span>{% endif %}
+            {% if it.meta.version %}<span class="mx-1">· v{{ it.meta.version }}</span>{% endif %}
+            {% if it.meta.environment %}<span class="mx-1">· {{ it.meta.environment }}</span>{% endif %}
+            {% if it.meta.branch %}<span class="mx-1">/ {{ it.meta.branch }}</span>{% endif %}
+          </div>
+          {% if it.meta.message %}
+            <div class="text-xs text-slate-500 truncate" title="{{ it.meta.message }}">{{ it.meta.message }}</div>
+          {% endif %}
+        {% endif %}
+      </td>
       <td class="p-2">{{ it.time_created.strftime('%Y-%m-%d %H:%M:%S') if it.time_created else '-' }}</td>
       <td class="p-2">{{ '%.2f'|format((it.size or 0) / (1024*1024)) }} MB</td>
       <td class="p-2 text-right">

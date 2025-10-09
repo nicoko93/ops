@@ -11,6 +11,7 @@ from flask import (
 )
 
 from google.cloud import storage as gcs
+    # noqa
 from google.oauth2 import service_account
 import xmltodict
 

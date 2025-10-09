@@ -281,8 +281,8 @@ ansible-playbook -i "${INVENTORY}" ansible/deploy-build-portal.yml \
   -e "helm_timeout=20m" \
   -e "helm_debug=true"
 
-helm list -A | grep -E "^build-portal-v2\\b" || true
-kubectl get pods -A | grep build-portal-v2 || true
+helm list -A | grep -E "^build-portal\\b" || true
+kubectl get pods -A | grep build-portal || true
 '
 '''
             }

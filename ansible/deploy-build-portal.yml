@@ -36,9 +36,8 @@
         release_namespace: "{{ k8s_namespace }}"
         create_namespace: true
         values: "{{ lookup('ansible.builtin.template', playbook_dir ~ '/build-portal-values.yml.j2') | from_yaml }}"
-        wait: true
-        wait_timeout: "{{ (helm_timeout is number) | ternary((helm_timeout|string) ~ 's', helm_timeout | default('900s')) }}"
-        atomic: true
+        wait: false
+        atomic: false
         update_repo_cache: false
         dependency_update: false
 

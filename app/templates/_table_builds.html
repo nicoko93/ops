@@ -13,7 +13,16 @@
     <tr class="border-t">
       <td class="p-2">{{ it.bucket }}</td>
       <td class="p-2 font-medium truncate">
-        {{ it.name }}
+        {% if it.provider == 'gcs' %}
+          <a class="underline truncate" href="/download/gcs/{{ it.bucket }}/{{ it.key }}" title="{{ it.name }}">
+            {{ it.name }}
+          </a>
+        {% else %}
+          <a class="underline truncate" href="/download/s3/{{ it.bucket }}/{{ it.key }}" title="{{ it.name }}">
+            {{ it.name }}
+          </a>
+        {% endif %}
+
         {% if it.meta %}
           <div class="text-xs text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis" title="{{ it.meta.message or '' }}">
             {% if it.meta.commit_short %}<span class="font-mono">{{ it.meta.commit_short }}</span>{% endif %}
@@ -29,11 +38,7 @@
       <td class="p-2">{{ it.time_created.strftime('%Y-%m-%d %H:%M:%S') if it.time_created else '-' }}</td>
       <td class="p-2">{{ '%.2f'|format((it.size or 0) / (1024*1024)) }} MB</td>
       <td class="p-2 text-right">
-        {% if it.provider == 'gcs' %}
-          <a class="underline" href="/download/gcs/{{ it.bucket }}/{{ it.key }}">Download</a>
-        {% else %}
-          <a class="underline" href="/download/s3/{{ it.bucket }}/{{ it.key }}">Download</a>
-        {% endif %}
+        <!-- intentionally left blank: name is now the download link -->
       </td>
     </tr>
     {% endfor %}

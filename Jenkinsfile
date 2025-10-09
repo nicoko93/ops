@@ -278,7 +278,7 @@ ansible-playbook -i "${INVENTORY}" ansible/deploy-build-portal.yml \
   --vault-password-file ./ansible/vault-password.sh \
   -e "image_repository=${IMAGE_REPOSITORY}" \
   -e "image_tag=${IMAGE_TAG}" \
-  -e "helm_timeout=1200" \
+  -e "helm_timeout=20m" \
   -e "helm_debug=true"
 
 helm list -A | grep -E "^build-portal-v2\\b" || true

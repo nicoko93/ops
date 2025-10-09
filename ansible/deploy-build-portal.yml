@@ -37,7 +37,15 @@
         create_namespace: true
         values: "{{ lookup('ansible.builtin.template', playbook_dir ~ '/build-portal-values.yml.j2') | from_yaml }}"
         wait: true
-        wait_timeout: "{{ helm_timeout | default(900) }}"
+        wait_timeout: "{{ (helm_timeout is number) | ternary((helm_timeout|string) ~ 's', helm_timeout | default('900s')) }}"
         atomic: true
         update_repo_cache: false
         dependency_update: false
+
+    - name: Ensure rollout completed
+      command: >
+        kubectl -n {{ k8s_namespace }}
+        rollout status deploy/{{ release_name }}
+        --timeout={{ (helm_timeout is number) | ternary((helm_timeout|string) ~ 's', helm_timeout | default('900s')) }}
+      changed_when: false
+

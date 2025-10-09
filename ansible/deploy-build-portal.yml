@@ -1,28 +1,14 @@
 ---
-
 - name: Deploy build-portal with Helm
   hosts: localhost
   gather_facts: false
 
-  tasks:
-    - name: Load common vars (playbook group_vars/all.yml)
-      include_vars:
-        file: "{{ playbook_dir }}/group_vars/all.yml"
-
-    - name: Load inventory variables (group_vars dir)
-      include_vars:
-        dir: "{{ inventory_dir }}/group_vars"
-        extensions: [ "yml", "yaml" ]
-
-    - name: Load secrets variables
-      include_vars:
-        file: "{{ inventory_dir }}/group_vars/secrets.yml"
   pre_tasks:
     # loads inventories/<env>/group_vars/*.yml
     - name: Load inventory variables (group_vars dir)
       include_vars:
         dir: "{{ inventory_dir }}/group_vars"
-        extensions: [yml, yaml]
+        extensions: [ "yml", "yaml" ]
 
     # loads ansible/group_vars/all.yml
     - name: Load common vars (playbook group_vars/all.yml)
@@ -35,9 +21,13 @@
         file: "{{ inventory_dir }}/group_vars/secrets.yml"
 
   tasks:
-    - name: Test cluster access
+    - name: Test cluster access (with retry)
       command: kubectl cluster-info
+      register: _cluster_info
       changed_when: false
+      retries: 30
+      delay: 5
+      until: _cluster_info.rc == 0
 
     - name: Deploy helm chart (local chart)
       kubernetes.core.helm:
@@ -47,6 +37,7 @@
         create_namespace: true
         values: "{{ lookup('ansible.builtin.template', playbook_dir ~ '/build-portal-values.yml.j2') | from_yaml }}"
         wait: true
+        wait_timeout: "{{ helm_timeout | default(900) }}"
         atomic: true
         update_repo_cache: false
         dependency_update: false

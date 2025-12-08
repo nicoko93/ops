@@ -31,6 +31,7 @@ class Config:
             "unreal-builds",
             "sandbox-builds",
             "control-center",
+            "bifrost"
         ])
     ).split(",")
 

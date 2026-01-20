@@ -21,6 +21,10 @@ from .storage import (
     gcs_signed_url, s3_signed_url, list_reports
 )
 from .models import TestRun, TestResult, SessionLocal
+from .crash_logs import (
+    list_crash_logs, group_logs_by_hierarchy,
+    get_crash_log_content, get_crash_log_signed_url, parse_crash_log_path
+)
 
 # ---------- UI ----------
 ui_bp = Blueprint("ui", __name__)
@@ -402,3 +406,47 @@ def test_stats():
 @login_required
 def stats_page():
     return render_template("stats.html")
+
+
+# ---------- Crash Logs ----------
+crash_logs_bp = Blueprint("crash_logs", __name__, url_prefix="/crash-logs")
+
+
+@crash_logs_bp.route("/")
+@crash_logs_bp.route("/<env>/")
+@crash_logs_bp.route("/<env>/<namespace>/")
+@login_required
+def list_logs(env=None, namespace=None):
+    days = request.args.get("days", 7, type=int)
+    logs = list_crash_logs(env=env, namespace=namespace, days=days)
+    tree = group_logs_by_hierarchy(logs)
+    return render_template(
+        "crash_logs/list.html",
+        tree=tree,
+        logs=logs,
+        current_env=env,
+        current_namespace=namespace,
+        days=days,
+        user=session.get("user"),
+    )
+
+
+@crash_logs_bp.route("/view/<path:key>")
+@login_required
+def view_log(key):
+    content = get_crash_log_content(key)
+    meta = parse_crash_log_path(key)
+    return render_template(
+        "crash_logs/view.html",
+        content=content,
+        meta=meta,
+        key=key,
+        user=session.get("user"),
+    )
+
+
+@crash_logs_bp.route("/download/<path:key>")
+@login_required
+def download_log(key):
+    url = get_crash_log_signed_url(key)
+    return redirect(url)

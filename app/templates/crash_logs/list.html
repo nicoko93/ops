@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Crash Logs</h1>
+    <div class="flex items-center gap-4">
+      <label class="text-sm text-slate-600">
+        Time range:
+        <select id="days-filter" class="ml-2 px-2 py-1 border rounded text-sm"
+                onchange="window.location.href='?days=' + this.value">
+          <option value="1" {% if days == 1 %}selected{% endif %}>Last 24h</option>
+          <option value="3" {% if days == 3 %}selected{% endif %}>Last 3 days</option>
+          <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+          <option value="14" {% if days == 14 %}selected{% endif %}>Last 14 days</option>
+          <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+        </select>
+      </label>
+      <input type="text" id="search-filter" placeholder="Filter logs..."
+             class="px-3 py-1 border rounded text-sm w-64"
+             oninput="filterTree(this.value)">
+    </div>
+  </div>
+
+  {% if current_env or current_namespace %}
+  <nav class="text-sm text-slate-500">
+    <a href="{{ url_for('crash_logs.list_logs') }}" class="hover:underline">All</a>
+    {% if current_env %}
+      <span class="mx-1">/</span>
+      <a href="{{ url_for('crash_logs.list_logs', env=current_env) }}" class="hover:underline">{{ current_env }}</a>
+    {% endif %}
+    {% if current_namespace %}
+      <span class="mx-1">/</span>
+      <span>{{ current_namespace }}</span>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  <div class="text-sm text-slate-500">
+    Found {{ logs|length }} crash log{% if logs|length != 1 %}s{% endif %}
+  </div>
+
+  {% if logs %}
+  <div id="log-tree" class="space-y-2">
+    {% for env, namespaces in tree.items() %}
+    <div class="log-env border rounded-lg bg-white shadow-sm" data-env="{{ env }}">
+      <button type="button"
+              class="w-full px-4 py-3 flex items-center justify-between text-left font-semibold hover:bg-slate-50"
+              onclick="toggleSection(this)">
+        <span class="flex items-center gap-2">
+          <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          <span class="env-badge px-2 py-0.5 rounded text-xs font-medium
+            {% if env == 'prod' %}bg-red-100 text-red-800
+            {% elif env == 'staging' %}bg-yellow-100 text-yellow-800
+            {% else %}bg-blue-100 text-blue-800{% endif %}">
+            {{ env }}
+          </span>
+        </span>
+        <span class="text-sm text-slate-500 font-normal">
+          {% set env_count = namespace(count=0) %}
+          {% for ns, deployments in namespaces.items() %}
+            {% for dep, pods in deployments.items() %}
+              {% for pod, pod_logs in pods.items() %}
+                {% set env_count.count = env_count.count + pod_logs|length %}
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+          {{ env_count.count }} log{% if env_count.count != 1 %}s{% endif %}
+        </span>
+      </button>
+      <div class="section-content hidden px-4 pb-3">
+        {% for ns, deployments in namespaces.items() %}
+        <div class="log-namespace ml-4 mt-2" data-namespace="{{ ns }}">
+          <button type="button"
+                  class="w-full flex items-center justify-between text-left py-2 hover:bg-slate-50 rounded"
+                  onclick="toggleSection(this)">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+              </svg>
+              <span class="font-medium text-slate-700">{{ ns }}</span>
+            </span>
+            <span class="text-xs text-slate-400">
+              {% set ns_count = namespace(count=0) %}
+              {% for dep, pods in deployments.items() %}
+                {% for pod, pod_logs in pods.items() %}
+                  {% set ns_count.count = ns_count.count + pod_logs|length %}
+                {% endfor %}
+              {% endfor %}
+              {{ ns_count.count }} log{% if ns_count.count != 1 %}s{% endif %}
+            </span>
+          </button>
+          <div class="section-content hidden">
+            {% for dep, pods in deployments.items() %}
+            <div class="log-deployment ml-4 mt-1" data-deployment="{{ dep }}">
+              <button type="button"
+                      class="w-full flex items-center justify-between text-left py-1.5 hover:bg-slate-50 rounded"
+                      onclick="toggleSection(this)">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                  <span class="text-sm text-slate-600">{{ dep }}</span>
+                </span>
+                <span class="text-xs text-slate-400">
+                  {% set dep_count = namespace(count=0) %}
+                  {% for pod, pod_logs in pods.items() %}
+                    {% set dep_count.count = dep_count.count + pod_logs|length %}
+                  {% endfor %}
+                  {{ dep_count.count }} log{% if dep_count.count != 1 %}s{% endif %}
+                </span>
+              </button>
+              <div class="section-content hidden">
+                {% for pod, pod_logs in pods.items() %}
+                <div class="log-pod ml-4 mt-1" data-pod="{{ pod }}">
+                  <button type="button"
+                          class="w-full flex items-center justify-between text-left py-1 hover:bg-slate-50 rounded"
+                          onclick="toggleSection(this)">
+                    <span class="flex items-center gap-2">
+                      <svg class="w-4 h-4 transform transition-transform chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                      </svg>
+                      <span class="text-xs font-mono text-slate-500">{{ pod }}</span>
+                    </span>
+                    <span class="text-xs text-slate-400">{{ pod_logs|length }} file{% if pod_logs|length != 1 %}s{% endif %}</span>
+                  </button>
+                  <div class="section-content hidden ml-6 mt-1 space-y-1">
+                    {% for log in pod_logs %}
+                    <div class="log-file flex items-center justify-between py-1 px-2 rounded hover:bg-slate-100 text-sm"
+                         data-container="{{ log.container }}" data-timestamp="{{ log.timestamp.isoformat() }}">
+                      <a href="{{ url_for('crash_logs.view_log', key=log.path) }}"
+                         class="flex-1 flex items-center gap-2 text-blue-600 hover:underline">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        <span class="font-mono">{{ log.container }}</span>
+                      </a>
+                      <span class="text-xs text-slate-400 ml-2">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                      <a href="{{ url_for('crash_logs.download_log', key=log.path) }}"
+                         class="ml-2 text-slate-400 hover:text-slate-600" title="Download">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                      </a>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-12 text-slate-500">
+    <svg class="w-12 h-12 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+    </svg>
+    <p>No crash logs found in the selected time range.</p>
+    <p class="text-sm mt-2">Try increasing the time range filter.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function toggleSection(button) {
+  const content = button.nextElementSibling;
+  const chevron = button.querySelector('.chevron');
+  content.classList.toggle('hidden');
+  chevron.classList.toggle('rotate-90');
+}
+
+function filterTree(query) {
+  const q = query.toLowerCase();
+  const files = document.querySelectorAll('.log-file');
+
+  files.forEach(file => {
+    const container = file.dataset.container || '';
+    const pod = file.closest('.log-pod')?.dataset.pod || '';
+    const deployment = file.closest('.log-deployment')?.dataset.deployment || '';
+    const namespace = file.closest('.log-namespace')?.dataset.namespace || '';
+    const env = file.closest('.log-env')?.dataset.env || '';
+
+    const text = [container, pod, deployment, namespace, env].join(' ').toLowerCase();
+    file.style.display = text.includes(q) ? '' : 'none';
+  });
+
+  // Show/hide parent sections based on visible children
+  document.querySelectorAll('.log-pod, .log-deployment, .log-namespace, .log-env').forEach(section => {
+    const hasVisibleChildren = section.querySelectorAll('.log-file:not([style*="display: none"])').length > 0;
+    section.style.display = hasVisibleChildren ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

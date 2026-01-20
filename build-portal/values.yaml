@@ -117,3 +117,8 @@ database:
 
   secretName: build-portal-db # name when the chart creates it
   secretKey: DATABASE_URL     # key inside the Secret
+
+# Crash Logs configuration
+crashLogs:
+  bucket: "app-crash-logs"
+  prefix: "crash-logs/"

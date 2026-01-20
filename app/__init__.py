@@ -3,7 +3,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from .config import Config
 from .auth import init_oauth
 from .models import init_db
-from .routes import ui_bp, test_results_api, test_results_ui
+from .routes import ui_bp, test_results_api, test_results_ui, crash_logs_bp
 
 def create_app():
     app = Flask(__name__)
@@ -16,4 +16,5 @@ def create_app():
     app.register_blueprint(ui_bp)
     app.register_blueprint(test_results_api, url_prefix="/api")
     app.register_blueprint(test_results_ui)
+    app.register_blueprint(crash_logs_bp)
     return app

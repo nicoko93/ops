@@ -9,3 +9,7 @@ data:
 {{- range $k, $v := .Values.config }}
   {{ $k }}: {{ tpl (toString $v) $root | quote }}
 {{- end }}
+{{- if .Values.crashLogs }}
+  CRASH_LOGS_BUCKET: {{ .Values.crashLogs.bucket | quote }}
+  CRASH_LOGS_PREFIX: {{ .Values.crashLogs.prefix | quote }}
+{{- end }}

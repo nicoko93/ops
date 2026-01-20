@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <a href="{{ url_for('crash_logs.list_logs') }}"
+         class="text-slate-500 hover:text-slate-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+      </a>
+      <h1 class="text-xl font-bold">Crash Log Viewer</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="copyContent()" class="px-3 py-1.5 text-sm border rounded hover:bg-slate-50 flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        Copy
+      </button>
+      <a href="{{ url_for('crash_logs.download_log', key=key) }}"
+         class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800 flex items-center gap-1">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        Download
+      </a>
+    </div>
+  </div>
+
+  {% if meta %}
+  <div class="bg-white border rounded-lg p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    <div>
+      <span class="text-slate-500">Environment</span>
+      <p class="font-medium">
+        <span class="px-2 py-0.5 rounded text-xs
+          {% if meta.environment == 'prod' %}bg-red-100 text-red-800
+          {% elif meta.environment == 'staging' %}bg-yellow-100 text-yellow-800
+          {% else %}bg-blue-100 text-blue-800{% endif %}">
+          {{ meta.environment }}
+        </span>
+      </p>
+    </div>
+    <div>
+      <span class="text-slate-500">Namespace</span>
+      <p class="font-medium">{{ meta.namespace }}</p>
+    </div>
+    <div>
+      <span class="text-slate-500">Deployment</span>
+      <p class="font-medium">{{ meta.deployment }}</p>
+    </div>
+    <div>
+      <span class="text-slate-500">Pod</span>
+      <p class="font-medium font-mono text-xs">{{ meta.pod }}</p>
+    </div>
+    <div>
+      <span class="text-slate-500">Container</span>
+      <p class="font-medium">{{ meta.container }}</p>
+    </div>
+    <div>
+      <span class="text-slate-500">Timestamp</span>
+      <p class="font-medium">{{ meta.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    </div>
+    <div class="col-span-2">
+      <span class="text-slate-500">Path</span>
+      <p class="font-mono text-xs text-slate-600 break-all">{{ key }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="bg-slate-900 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 bg-slate-800 text-slate-400 text-xs">
+      <span>Log Content</span>
+      <span id="line-count"></span>
+    </div>
+    <pre id="log-content" class="p-4 text-sm text-slate-100 overflow-x-auto max-h-[70vh] overflow-y-auto font-mono whitespace-pre-wrap break-words">{{ content }}</pre>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const content = document.getElementById('log-content');
+  const lineCount = content.textContent.split('\n').length;
+  document.getElementById('line-count').textContent = lineCount + ' lines';
+});
+
+function copyContent() {
+  const content = document.getElementById('log-content').textContent;
+  navigator.clipboard.writeText(content).then(() => {
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';
+    setTimeout(() => {
+      btn.innerHTML = originalText;
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

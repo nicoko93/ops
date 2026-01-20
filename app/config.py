@@ -61,3 +61,7 @@ class Config:
         "JENKINS_DEFAULT_URL",
         "https://jenkins-production.example.com/job/Unity-LTS-Tests/",
     )
+
+    # Crash Logs
+    CRASH_LOGS_BUCKET = os.getenv("CRASH_LOGS_BUCKET", "app-crash-logs")
+    CRASH_LOGS_PREFIX = os.getenv("CRASH_LOGS_PREFIX", "crash-logs/")

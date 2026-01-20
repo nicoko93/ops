@@ -107,3 +107,52 @@ def get_crash_log_signed_url(key: str, seconds: int = 3600) -> str:
     bucket_name = current_app.config.get("CRASH_LOGS_BUCKET", "app-crash-logs")
     blob = client.bucket(bucket_name).blob(key)
     return blob.generate_signed_url(version="v4", expiration=seconds)
+
+
+def get_sibling_logs(key: str) -> Dict[str, Optional[Dict[str, Any]]]:
+    """
+    Get previous and next logs within the same deployment folder.
+    Returns dict with 'prev' and 'next' keys containing log metadata or None.
+    """
+    meta = parse_crash_log_path(key)
+    if not meta:
+        return {"prev": None, "next": None}
+
+    env = meta["environment"]
+    namespace = meta["namespace"]
+    deployment = meta["deployment"]
+
+    client = gcs_client()
+    bucket_name = current_app.config.get("CRASH_LOGS_BUCKET", "app-crash-logs")
+    prefix = f"crash-logs/{env}/{namespace}/"
+
+    bucket = client.bucket(bucket_name)
+    logs = []
+
+    for blob in bucket.list_blobs(prefix=prefix):
+        if not blob.name.endswith(".log"):
+            continue
+        log_meta = parse_crash_log_path(blob.name)
+        if log_meta and log_meta["deployment"] == deployment:
+            logs.append(log_meta)
+
+    logs.sort(key=lambda x: x["timestamp"], reverse=True)
+
+    current_idx = None
+    for i, log in enumerate(logs):
+        if log["path"] == key:
+            current_idx = i
+            break
+
+    if current_idx is None:
+        return {"prev": None, "next": None}
+
+    prev_log = logs[current_idx - 1] if current_idx > 0 else None
+    next_log = logs[current_idx + 1] if current_idx < len(logs) - 1 else None
+
+    return {
+        "prev": prev_log,
+        "next": next_log,
+        "current_index": current_idx + 1,
+        "total": len(logs),
+    }

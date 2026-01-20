@@ -70,6 +70,54 @@
   </div>
   {% endif %}
 
+  {% if siblings and siblings.total > 1 %}
+  <div class="flex items-center justify-between bg-white border rounded-lg px-4 py-2">
+    <div class="flex items-center gap-2">
+      {% if siblings.prev %}
+      <a href="{{ url_for('crash_logs.view_log', key=siblings.prev.path) }}"
+         class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded hover:bg-slate-50"
+         title="{{ siblings.prev.container }} - {{ siblings.prev.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Previous
+      </a>
+      {% else %}
+      <span class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded text-slate-300 cursor-not-allowed">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+        Previous
+      </span>
+      {% endif %}
+    </div>
+
+    <span class="text-sm text-slate-500">
+      {{ siblings.current_index }} / {{ siblings.total }} in <span class="font-medium">{{ meta.deployment }}</span>
+    </span>
+
+    <div class="flex items-center gap-2">
+      {% if siblings.next %}
+      <a href="{{ url_for('crash_logs.view_log', key=siblings.next.path) }}"
+         class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded hover:bg-slate-50"
+         title="{{ siblings.next.container }} - {{ siblings.next.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
+        Next
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </a>
+      {% else %}
+      <span class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded text-slate-300 cursor-not-allowed">
+        Next
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="bg-slate-900 rounded-lg overflow-hidden">
     <div class="flex items-center justify-between px-4 py-2 bg-slate-800 text-slate-400 text-xs">
       <span>Log Content</span>

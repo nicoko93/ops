@@ -23,7 +23,8 @@ from .storage import (
 from .models import TestRun, TestResult, SessionLocal
 from .crash_logs import (
     list_crash_logs, group_logs_by_hierarchy,
-    get_crash_log_content, get_crash_log_signed_url, parse_crash_log_path
+    get_crash_log_content, get_crash_log_signed_url, parse_crash_log_path,
+    get_sibling_logs
 )
 
 # ---------- UI ----------
@@ -436,11 +437,13 @@ def list_logs(env=None, namespace=None):
 def view_log(key):
     content = get_crash_log_content(key)
     meta = parse_crash_log_path(key)
+    siblings = get_sibling_logs(key)
     return render_template(
         "crash_logs/view.html",
         content=content,
         meta=meta,
         key=key,
+        siblings=siblings,
         user=session.get("user"),
     )
 

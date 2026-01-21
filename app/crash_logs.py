@@ -1,4 +1,5 @@
 import re
+from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
@@ -155,4 +156,42 @@ def get_sibling_logs(key: str) -> Dict[str, Optional[Dict[str, Any]]]:
         "next": next_log,
         "current_index": current_idx + 1,
         "total": len(logs),
+    }
+
+
+def get_rancher_links(environment: str, namespace: str, pod: str) -> Dict[str, Optional[str]]:
+    """
+    Generate Rancher links for quick navigation to the cluster.
+    Returns dict with URLs for namespace, events, and workloads views.
+    """
+    base_url = current_app.config.get("RANCHER_BASE_URL", "https://infra.example.com")
+    cluster_ids = current_app.config.get("RANCHER_CLUSTER_IDS", {})
+
+    cluster_id = cluster_ids.get(environment)
+    if not cluster_id:
+        return {
+            "configured": False,
+            "namespace_url": None,
+            "events_url": None,
+            "workloads_url": None,
+            "pod_url": None,
+        }
+
+    # URL encode namespace and pod names
+    ns_encoded = quote(namespace, safe="")
+    pod_encoded = quote(pod, safe="")
+
+    # Rancher dashboard URLs (Rancher 2.x format)
+    return {
+        "configured": True,
+        "base_url": base_url,
+        "cluster_id": cluster_id,
+        # Namespace overview
+        "namespace_url": f"{base_url}/dashboard/c/{cluster_id}/explorer/namespace/{ns_encoded}",
+        # Events filtered by namespace
+        "events_url": f"{base_url}/dashboard/c/{cluster_id}/explorer/event?q=metadata.namespace%3D{ns_encoded}",
+        # Workloads in namespace (deployments, pods, etc.)
+        "workloads_url": f"{base_url}/dashboard/c/{cluster_id}/explorer/workload?q=metadata.namespace%3D{ns_encoded}",
+        # Direct pod link (may 404 if pod is deleted)
+        "pod_url": f"{base_url}/dashboard/c/{cluster_id}/explorer/pod/{ns_encoded}/{pod_encoded}",
     }

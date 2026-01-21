@@ -65,3 +65,16 @@ class Config:
     # Crash Logs
     CRASH_LOGS_BUCKET = os.getenv("CRASH_LOGS_BUCKET", "app-crash-logs")
     CRASH_LOGS_PREFIX = os.getenv("CRASH_LOGS_PREFIX", "crash-logs/")
+
+    # Rancher (Infra)
+    RANCHER_BASE_URL = os.getenv("RANCHER_BASE_URL", "https://infra.example.com")
+    # Mapping: environment -> Rancher cluster ID (find in Rancher URL when browsing a cluster)
+    # Format: "env:cluster-id,env:cluster-id"
+    RANCHER_CLUSTER_IDS = {
+        pair.split(":")[0]: pair.split(":")[1]
+        for pair in os.getenv(
+            "RANCHER_CLUSTER_IDS",
+            "dev:cluster-dev-id,prod:cluster-prod-id,ops:cluster-ops-id"
+        ).split(",")
+        if ":" in pair
+    }

@@ -68,6 +68,56 @@
       <p class="font-mono text-xs text-slate-600 break-all">{{ key }}</p>
     </div>
   </div>
+
+  {% if rancher_links and rancher_links.configured %}
+  <div class="bg-gradient-to-r from-slate-50 to-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
+        <span class="font-medium text-slate-700">Quick Actions - Rancher</span>
+      </div>
+      <span class="text-xs text-slate-500">Investigate in cluster</span>
+    </div>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <a href="{{ rancher_links.events_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 text-amber-800 border border-amber-300 rounded-md hover:bg-amber-200 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        Events
+      </a>
+      <a href="{{ rancher_links.namespace_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-100 text-blue-800 border border-blue-300 rounded-md hover:bg-blue-200 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+        </svg>
+        Namespace
+      </a>
+      <a href="{{ rancher_links.workloads_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-green-100 text-green-800 border border-green-300 rounded-md hover:bg-green-200 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+        </svg>
+        Workloads
+      </a>
+      <a href="{{ rancher_links.pod_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-100 text-purple-800 border border-purple-300 rounded-md hover:bg-purple-200 transition-colors"
+         title="Pod may no longer exist if it was deleted">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+        </svg>
+        Pod
+        <span class="text-xs opacity-70">(may 404)</span>
+      </a>
+    </div>
+  </div>
+  {% elif rancher_links and not rancher_links.configured %}
+  <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-500">
+    <span class="font-medium">Rancher links unavailable:</span> Cluster ID not configured for environment "{{ meta.environment }}".
+  </div>
+  {% endif %}
   {% endif %}
 
   {% if siblings and siblings.total > 1 %}

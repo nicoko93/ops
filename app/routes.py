@@ -24,7 +24,7 @@ from .models import TestRun, TestResult, SessionLocal
 from .crash_logs import (
     list_crash_logs, group_logs_by_hierarchy,
     get_crash_log_content, get_crash_log_signed_url, parse_crash_log_path,
-    get_sibling_logs
+    get_sibling_logs, get_rancher_links
 )
 
 # ---------- UI ----------
@@ -438,12 +438,23 @@ def view_log(key):
     content = get_crash_log_content(key)
     meta = parse_crash_log_path(key)
     siblings = get_sibling_logs(key)
+
+    # Generate Rancher links for quick navigation
+    rancher_links = None
+    if meta:
+        rancher_links = get_rancher_links(
+            meta["environment"],
+            meta["namespace"],
+            meta["pod"]
+        )
+
     return render_template(
         "crash_logs/view.html",
         content=content,
         meta=meta,
         key=key,
         siblings=siblings,
+        rancher_links=rancher_links,
         user=session.get("user"),
     )
 

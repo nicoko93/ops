@@ -504,6 +504,11 @@ def presign():
     if not filename.lower().endswith(".zip"):
         return jsonify({"error": "Only .zip files are allowed"}), 400
 
+    # Check AWS credentials are configured
+    if not current_app.config.get("AWS_ACCESS_KEY_ID"):
+        current_app.logger.error("AWS_ACCESS_KEY_ID not configured")
+        return jsonify({"error": "AWS credentials not configured"}), 500
+
     # Sanitize filename (remove path separators, keep only basename)
     safe_name = filename.replace("\\", "/").split("/")[-1]
 
@@ -519,5 +524,6 @@ def presign():
             "key": safe_name,
         })
     except Exception as e:
-        current_app.logger.error(f"Error generating presigned URL: {e}")
-        return jsonify({"error": "Failed to generate upload URL"}), 500
+        import traceback
+        current_app.logger.error(f"Error generating presigned URL: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": f"Failed to generate upload URL: {str(e)}"}), 500

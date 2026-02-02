@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Legacy Unreal Upload - Build Portal{% endblock %}
+
+{% block head %}
+<script defer src="{{ url_for('static', filename='legacy_upload.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Legacy Unreal Upload</h1>
+      <p class="text-slate-500 mt-1">Upload shipping artifacts to the unreal-builds S3 bucket</p>
+    </div>
+  </div>
+
+  <!-- Upload Zone -->
+  <div id="upload-zone" class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center bg-white transition-colors hover:border-slate-400 cursor-pointer"
+       data-state="idle">
+
+    <!-- Idle State -->
+    <div id="state-idle" class="space-y-4">
+      <div class="mx-auto w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+      </div>
+      <div>
+        <p class="text-lg font-medium text-slate-700">Drop your .zip file here</p>
+        <p class="text-sm text-slate-500 mt-1">or click to browse</p>
+      </div>
+      <input type="file" id="file-input" accept=".zip" class="hidden" />
+    </div>
+
+    <!-- Selected State -->
+    <div id="state-selected" class="hidden space-y-4">
+      <div class="mx-auto w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+      </div>
+      <div>
+        <p id="selected-filename" class="text-lg font-medium text-slate-700"></p>
+        <p id="selected-filesize" class="text-sm text-slate-500"></p>
+      </div>
+      <div class="flex items-center justify-center gap-3">
+        <button id="btn-upload" class="btn-primary">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          Upload
+        </button>
+        <button id="btn-cancel" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Uploading State -->
+    <div id="state-uploading" class="hidden space-y-4">
+      <div class="mx-auto w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+      <div>
+        <p id="uploading-filename" class="text-lg font-medium text-slate-700"></p>
+        <p id="uploading-status" class="text-sm text-slate-500">Uploading...</p>
+      </div>
+      <div class="max-w-md mx-auto">
+        <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div id="progress-bar" class="h-full bg-blue-600 transition-all duration-150" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-xs text-slate-500 mt-1">
+          <span id="progress-percent">0%</span>
+          <span id="progress-speed"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Success State -->
+    <div id="state-success" class="hidden space-y-4">
+      <div class="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+      <div>
+        <p class="text-lg font-medium text-green-700">Upload Complete!</p>
+        <p id="success-filename" class="text-sm text-slate-500"></p>
+      </div>
+      <div class="max-w-lg mx-auto bg-slate-50 rounded-lg p-3">
+        <label class="text-xs text-slate-500 block mb-1">Public URL</label>
+        <div class="flex items-center gap-2">
+          <input type="text" id="success-url" readonly
+                 class="flex-1 px-3 py-2 text-sm bg-white border rounded font-mono text-slate-600" />
+          <button id="btn-copy-url" class="btn-secondary btn-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+            Copy
+          </button>
+        </div>
+      </div>
+      <button id="btn-upload-another" class="btn-primary">Upload Another File</button>
+    </div>
+
+    <!-- Error State -->
+    <div id="state-error" class="hidden space-y-4">
+      <div class="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </div>
+      <div>
+        <p class="text-lg font-medium text-red-700">Upload Failed</p>
+        <p id="error-message" class="text-sm text-slate-500"></p>
+      </div>
+      <button id="btn-retry" class="btn-primary">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Existing Files -->
+  <div class="bg-white border rounded-lg overflow-hidden">
+    <div class="px-4 py-3 border-b bg-slate-50 flex items-center justify-between">
+      <h2 class="font-medium">Existing Files</h2>
+      <button id="btn-refresh"
+              hx-get="{{ url_for('legacy_unreal.files_partial') }}"
+              hx-target="#files-table-container"
+              hx-swap="innerHTML"
+              class="btn-ghost btn-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Refresh
+      </button>
+    </div>
+    <div id="files-table-container">
+      {% include "legacy_unreal/_files_table.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

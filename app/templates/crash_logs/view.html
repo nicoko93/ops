@@ -12,7 +12,7 @@
       <h1 class="text-xl font-bold">Crash Log Viewer</h1>
     </div>
     <div class="flex items-center gap-2">
-      <button onclick="copyContent()" class="px-3 py-1.5 text-sm border rounded hover:bg-slate-50 flex items-center gap-1">
+      <button onclick="copyContent()" class="btn-secondary btn-sm">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
@@ -20,7 +20,7 @@
         Copy
       </button>
       <a href="{{ url_for('crash_logs.download_log', key=key) }}"
-         class="px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800 flex items-center gap-1">
+         class="btn-primary btn-sm">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -125,7 +125,7 @@
     <div class="flex items-center gap-2">
       {% if siblings.prev %}
       <a href="{{ url_for('crash_logs.view_log', key=siblings.prev.path) }}"
-         class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded hover:bg-slate-50"
+         class="btn-secondary btn-sm"
          title="{{ siblings.prev.container }} - {{ siblings.prev.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -133,7 +133,7 @@
         Previous
       </a>
       {% else %}
-      <span class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded text-slate-300 cursor-not-allowed">
+      <span class="btn-secondary btn-sm opacity-50 cursor-not-allowed">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
         </svg>
@@ -149,7 +149,7 @@
     <div class="flex items-center gap-2">
       {% if siblings.next %}
       <a href="{{ url_for('crash_logs.view_log', key=siblings.next.path) }}"
-         class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded hover:bg-slate-50"
+         class="btn-secondary btn-sm"
          title="{{ siblings.next.container }} - {{ siblings.next.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}">
         Next
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,7 +157,7 @@
         </svg>
       </a>
       {% else %}
-      <span class="flex items-center gap-1 px-3 py-1.5 text-sm border rounded text-slate-300 cursor-not-allowed">
+      <span class="btn-secondary btn-sm opacity-50 cursor-not-allowed">
         Next
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -187,6 +187,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function copyContent() {
   const content = document.getElementById('log-content').textContent;
   navigator.clipboard.writeText(content).then(() => {
+    if (window.Toast) {
+      Toast.success('Log content copied to clipboard');
+    }
     const btn = event.target.closest('button');
     const originalText = btn.innerHTML;
     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!';

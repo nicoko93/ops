@@ -1,118 +1,103 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Stats API</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <style>
-    body { background:#f7f8fb; }
-    .card { border-radius:1rem; box-shadow:0 2px 10px rgba(0,0,0,.05); }
-    .metric { font-size:1.75rem; font-weight:700; }
-    .badge-status { font-size:.85rem; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
-  </style>
-</head>
-<body class="p-3 p-md-4">
-  <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1 class="h3 my-0">📊 Stats API</h1>
-      <div class="d-flex gap-2">
-        <a class="btn btn-outline-secondary btn-sm" href="/api/stats?pretty=1">View JSON (pretty)</a>
-        <a class="btn btn-secondary btn-sm" href="/">← Back</a>
-      </div>
+{% extends "base.html" %}
+{% block title %}Stats API - Build Portal{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Stats API</h1>
+      <p class="text-slate-500 mt-1">Test statistics overview</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/api/stats?pretty=1" target="_blank" class="btn-secondary btn-sm">View JSON (pretty)</a>
+      <a href="/" class="btn-secondary">Back</a>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="bg-white border rounded-lg p-4 text-center">
+      <div class="text-sm text-slate-500">Total Tests</div>
+      <div class="text-2xl font-bold text-blue-600 mt-1">{{ stats.total_tests }}</div>
+    </div>
+    <div class="bg-white border rounded-lg p-4 text-center">
+      <div class="text-sm text-slate-500">Passed</div>
+      <div class="text-2xl font-bold text-green-600 mt-1">{{ stats.passed }}</div>
+    </div>
+    <div class="bg-white border rounded-lg p-4 text-center">
+      <div class="text-sm text-slate-500">Failed</div>
+      <div class="text-2xl font-bold text-red-600 mt-1">{{ stats.failed }}</div>
+    </div>
+    <div class="bg-white border rounded-lg p-4 text-center">
+      <div class="text-sm text-slate-500">Success Rate</div>
+      <div class="text-2xl font-bold text-slate-900 mt-1">{{ stats.success_rate }}%</div>
+    </div>
+  </div>
+
+  <!-- Test Results -->
+  <div class="bg-white border rounded-lg overflow-hidden">
+    <div class="px-4 py-3 border-b bg-slate-50">
+      <h2 class="font-medium">Latest Test Results (Grouped)</h2>
     </div>
 
-    <!-- Summary -->
-    <div class="row g-3 mb-4">
-      <div class="col-6 col-md-3">
-        <div class="card p-3 text-center">
-          <div>Total Tests</div>
-          <div class="metric text-primary">{{ stats.total_tests }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card p-3 text-center">
-          <div>Passed</div>
-          <div class="metric text-success">{{ stats.passed }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card p-3 text-center">
-          <div>Failed</div>
-          <div class="metric text-danger">{{ stats.failed }}</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="card p-3 text-center">
-          <div>Success Rate</div>
-          <div class="metric">{{ stats.success_rate }}%</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card p-3 p-md-4">
-      <h2 class="h5 mb-3">Latest Test Results (Grouped)</h2>
-
-      {% if stats.latest_tests_grouped %}
+    {% if stats.latest_tests_grouped %}
+      <div class="divide-y">
         {% for grp in stats.latest_tests_grouped %}
-          <div class="mb-3 p-3 border rounded bg-white">
-            <div class="d-flex flex-wrap justify-content-between align-items-center">
-              <div class="mono">
-                <strong>Changeset:</strong> {{ grp.changeset_id }}
-                &nbsp;•&nbsp;
-                <strong>Report:</strong> {{ grp.report_id }}
+          <div class="p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div class="font-mono text-sm">
+                <span class="text-slate-500">Changeset:</span> <span class="font-medium">{{ grp.changeset_id }}</span>
+                <span class="mx-2 text-slate-300">|</span>
+                <span class="text-slate-500">Report:</span> <span class="font-medium">{{ grp.report_id }}</span>
               </div>
-              <div>
+              <div class="flex items-center gap-2">
                 {% if grp.jenkins_url %}
-                  <a class="btn btn-sm btn-outline-primary" target="_blank" href="{{ jenkins_default }}">Open Jenkins</a>
+                  <a class="btn-ghost btn-sm" target="_blank" href="{{ jenkins_default }}">Open Jenkins</a>
                 {% endif %}
-                <a class="btn btn-sm btn-outline-secondary" target="_blank" href="/reports/index.html?file={{ grp.report_id }}.xml">Open XML</a>
+                <a class="btn-secondary btn-sm" target="_blank" href="/reports/index.html?file={{ grp.report_id }}.xml">Open XML</a>
               </div>
             </div>
 
-            <div class="table-responsive mt-3">
-              <table class="table table-sm align-middle">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th>Project</th>
-                    <th>Test</th>
-                    <th>Status</th>
-                    <th>Developer</th>
-                    <th>Unity</th>
-                    <th class="text-end">Duration (s)</th>
+                  <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b">
+                    <th class="px-3 py-2">Project</th>
+                    <th class="px-3 py-2">Test</th>
+                    <th class="px-3 py-2">Status</th>
+                    <th class="px-3 py-2">Developer</th>
+                    <th class="px-3 py-2">Unity</th>
+                    <th class="px-3 py-2 text-right">Duration (s)</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y">
                   {% for t in grp.tests %}
-                    <tr>
-                      <td>{{ t.project }}</td>
-                      <td class="mono">{{ t.test_name }}</td>
-                      <td>
+                    <tr class="hover:bg-slate-50">
+                      <td class="px-3 py-2">{{ t.project }}</td>
+                      <td class="px-3 py-2 font-mono text-xs">{{ t.test_name }}</td>
+                      <td class="px-3 py-2">
                         {% if t.status == 'Passed' %}
-                          <span class="badge bg-success badge-status">Passed</span>
+                          <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Passed</span>
                         {% elif t.status == 'Failed' %}
-                          <span class="badge bg-danger badge-status">Failed</span>
+                          <span class="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Failed</span>
                         {% else %}
-                          <span class="badge bg-secondary badge-status">{{ t.status }}</span>
+                          <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">{{ t.status }}</span>
                         {% endif %}
                       </td>
-                      <td>{{ t.developer_email }}</td>
-                      <td>{{ t.unity_version }}</td>
-                      <td class="text-end mono">{{ t.duration }}</td>
+                      <td class="px-3 py-2 text-slate-500">{{ t.developer_email }}</td>
+                      <td class="px-3 py-2 text-slate-500">{{ t.unity_version }}</td>
+                      <td class="px-3 py-2 text-right font-mono">{{ t.duration }}</td>
                     </tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
-
           </div>
         {% endfor %}
-      {% else %}
-        <div class="text-muted">No recent tests.</div>
-      {% endif %}
-    </div>
-
+      </div>
+    {% else %}
+      <div class="p-8 text-center text-slate-500">No recent tests.</div>
+    {% endif %}
   </div>
-</body>
-</html>
+</div>
+{% endblock %}

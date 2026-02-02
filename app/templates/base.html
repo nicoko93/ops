@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Build Portal</title>
+  <title>{% block title %}Build Portal{% endblock %}</title>
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -11,32 +11,143 @@
 
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {}
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    /* Button Components */
+    .btn {
+      @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+    .btn-primary {
+      @apply btn bg-slate-900 text-white hover:bg-slate-800 focus:ring-slate-900;
+    }
+    .btn-secondary {
+      @apply btn bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus:ring-slate-500;
+    }
+    .btn-ghost {
+      @apply btn bg-transparent text-slate-600 hover:bg-slate-100 focus:ring-slate-500;
+    }
+    .btn-danger {
+      @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-600;
+    }
+    .btn-sm {
+      @apply px-3 py-1.5 text-xs;
+    }
+    .btn-lg {
+      @apply px-6 py-3 text-base;
+    }
+
+    /* Nav link active state */
+    .nav-link {
+      @apply px-3 py-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors;
+    }
+    .nav-link-active {
+      @apply bg-slate-100 text-slate-900 font-medium;
+    }
+  </style>
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
   <script defer src="{{ url_for('static', filename='main.js') }}"></script>
+  {% block head %}{% endblock %}
 </head>
 <body class="bg-slate-50 text-slate-800">
-  <header class="sticky top-0 z-10 bg-white/80 backdrop-blur border-b">
+  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="font-bold text-lg">🏗️ Build Portal</div>
-      <nav class="text-sm flex items-center gap-3">
-        <a href="#latest" class="hover:underline">Last builds</a>
-        <a href="#gcs" class="hover:underline">Buckets</a>
-        <a href="#reports" class="hover:underline">Reports</a>
-        <a href="/crash-logs/" class="hover:underline">Crash Logs</a>
-        <a href="/api/stats" class="hover:underline">Stats API</a>
+      <a href="/" class="font-bold text-lg hover:opacity-80 transition-opacity">Build Portal</a>
+
+      <!-- Desktop Navigation -->
+      <nav class="hidden md:flex text-sm items-center gap-1">
+        {% set current_endpoint = request.endpoint or '' %}
+        <a href="/" class="nav-link {% if current_endpoint == 'ui.index' %}nav-link-active{% endif %}">Builds</a>
+        <a href="/crash-logs/" class="nav-link {% if current_endpoint.startswith('crash_logs') %}nav-link-active{% endif %}">Crash Logs</a>
+        <a href="/unreal-builds/" class="nav-link {% if current_endpoint.startswith('legacy_unreal') %}nav-link-active{% endif %}">Legacy Upload</a>
+        <a href="/api/stats" class="nav-link {% if current_endpoint == 'test_results_api.test_stats' %}nav-link-active{% endif %}">Stats API</a>
+
+        <div class="w-px h-5 bg-slate-200 mx-2"></div>
+
         {% if user %}
-          <span class="text-slate-500">{{ user.email }}</span>
-          <a href="/logout" class="px-3 py-1 rounded border">Logout</a>
+          <span class="text-slate-500 text-xs">{{ user.email }}</span>
+          <a href="/logout" class="btn-secondary btn-sm ml-2">Logout</a>
         {% else %}
-          <a href="/login" class="px-3 py-1 rounded bg-slate-900 text-white">Login</a>
+          <a href="/login" class="btn-primary btn-sm">Login</a>
         {% endif %}
       </nav>
+
+      <!-- Mobile Hamburger -->
+      <button id="mobile-menu-btn" class="md:hidden p-2 rounded-md hover:bg-slate-100" aria-label="Open menu">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path id="hamburger-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          <path id="close-icon" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile Navigation Drawer -->
+    <div id="mobile-menu" class="hidden md:hidden border-t bg-white">
+      <div class="px-4 py-3 space-y-1">
+        {% set current_endpoint = request.endpoint or '' %}
+        <a href="/" class="block px-3 py-2 rounded-md {% if current_endpoint == 'ui.index' %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Builds</a>
+        <a href="/crash-logs/" class="block px-3 py-2 rounded-md {% if current_endpoint.startswith('crash_logs') %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Crash Logs</a>
+        <a href="/unreal-builds/" class="block px-3 py-2 rounded-md {% if current_endpoint.startswith('legacy_unreal') %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Legacy Upload</a>
+        <a href="/api/stats" class="block px-3 py-2 rounded-md {% if current_endpoint == 'test_results_api.test_stats' %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Stats API</a>
+
+        <div class="border-t my-2"></div>
+
+        {% if user %}
+          <div class="px-3 py-2 text-sm text-slate-500">{{ user.email }}</div>
+          <a href="/logout" class="block px-3 py-2 rounded-md hover:bg-slate-50">Logout</a>
+        {% else %}
+          <a href="/login" class="block px-3 py-2 rounded-md bg-slate-900 text-white text-center">Login</a>
+        {% endif %}
+      </div>
     </div>
   </header>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="max-w-7xl mx-auto px-4 pt-4">
+        {% for category, message in messages %}
+          <div class="mb-2 p-4 rounded-lg flex items-center justify-between
+            {% if category == 'error' %}bg-red-50 text-red-800 border border-red-200
+            {% elif category == 'success' %}bg-green-50 text-green-800 border border-green-200
+            {% elif category == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
+            {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+            <span>{{ message }}</span>
+            <button onclick="this.parentElement.remove()" class="p-1 hover:opacity-70">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
 
   <main class="max-w-7xl mx-auto px-4 py-6">
     {% block content %}{% endblock %}
   </main>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Toast Template -->
+  <template id="toast-template">
+    <div class="toast pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transform transition-all duration-300 translate-x-full opacity-0">
+      <span class="toast-icon"></span>
+      <span class="toast-message flex-1 text-sm"></span>
+      <button class="toast-close p-1 hover:opacity-70" onclick="this.closest('.toast').remove()">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  </template>
 </body>
 </html>

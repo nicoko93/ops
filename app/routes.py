@@ -18,7 +18,8 @@ import xmltodict
 from .auth import oauth, login_required, domain_allowed
 from .storage import (
     list_gcs_recent_buckets, list_s3_recent, list_gcs_bucket,
-    gcs_signed_url, s3_signed_url, list_reports
+    gcs_signed_url, s3_signed_url, list_reports,
+    s3_presigned_put_url, list_legacy_unreal_files, legacy_unreal_public_url
 )
 from .models import TestRun, TestResult, SessionLocal
 from .crash_logs import (
@@ -464,3 +465,59 @@ def view_log(key):
 def download_log(key):
     url = get_crash_log_signed_url(key)
     return redirect(url)
+
+
+# ---------- Legacy Unreal Upload ----------
+legacy_unreal_bp = Blueprint("legacy_unreal", __name__, url_prefix="/unreal-builds")
+
+
+@legacy_unreal_bp.route("/")
+@login_required
+def upload_page():
+    files = list_legacy_unreal_files()
+    return render_template(
+        "legacy_unreal/upload.html",
+        files=files,
+        user=session.get("user"),
+    )
+
+
+@legacy_unreal_bp.route("/files")
+@login_required
+def files_partial():
+    """HTMX partial for refreshing the files table."""
+    files = list_legacy_unreal_files()
+    return render_template("legacy_unreal/_files_table.html", files=files)
+
+
+@legacy_unreal_bp.route("/presign", methods=["POST"])
+@login_required
+def presign():
+    """Generate presigned PUT URL for direct S3 upload."""
+    data = request.get_json() or {}
+    filename = data.get("filename", "").strip()
+    content_type = data.get("content_type", "application/zip")
+
+    if not filename:
+        return jsonify({"error": "Filename is required"}), 400
+
+    if not filename.lower().endswith(".zip"):
+        return jsonify({"error": "Only .zip files are allowed"}), 400
+
+    # Sanitize filename (remove path separators, keep only basename)
+    safe_name = filename.replace("\\", "/").split("/")[-1]
+
+    bucket = current_app.config.get("LCK_UNREAL_BUCKET", "unreal-builds")
+
+    try:
+        presigned_url = s3_presigned_put_url(bucket, safe_name, content_type, seconds=3600)
+        public_url = legacy_unreal_public_url(safe_name)
+
+        return jsonify({
+            "presigned_url": presigned_url,
+            "public_url": public_url,
+            "key": safe_name,
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error generating presigned URL: {e}")
+        return jsonify({"error": "Failed to generate upload URL"}), 500

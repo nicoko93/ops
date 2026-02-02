@@ -111,6 +111,61 @@ def s3_signed_url(bucket: str, key: str, seconds: int = 3600) -> str:
         "get_object", Params={"Bucket": bucket, "Key": key}, ExpiresIn=seconds
     )
 
+
+def s3_client_eu():
+    """S3 client for eu-central-1 region (Legacy Unreal bucket)."""
+    return boto3.client(
+        "s3",
+        aws_access_key_id=current_app.config.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=current_app.config.get("AWS_SECRET_ACCESS_KEY"),
+        region_name=current_app.config.get("LCK_UNREAL_REGION", "eu-central-1"),
+    )
+
+
+def s3_presigned_put_url(bucket: str, key: str, content_type: str, seconds: int = 3600) -> str:
+    """Generate a presigned PUT URL for direct browser upload to S3."""
+    client = s3_client_eu()
+    return client.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": bucket,
+            "Key": key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=seconds,
+    )
+
+
+def list_legacy_unreal_files(prefix: str = "") -> List[Dict[str, Any]]:
+    """List files in the Legacy Unreal S3 bucket."""
+    bucket = current_app.config.get("LCK_UNREAL_BUCKET", "unreal-builds")
+    if not current_app.config.get("AWS_ACCESS_KEY_ID"):
+        return []
+
+    client = s3_client_eu()
+    out: List[Dict[str, Any]] = []
+
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            out.append({
+                "key": key,
+                "name": key.split("/")[-1] or key,
+                "size": obj["Size"],
+                "last_modified": obj["LastModified"],
+            })
+
+    out.sort(key=lambda x: x["last_modified"], reverse=True)
+    return out
+
+
+def legacy_unreal_public_url(key: str) -> str:
+    """Generate public URL for an Legacy Unreal file (bucket must have public read)."""
+    bucket = current_app.config.get("LCK_UNREAL_BUCKET", "unreal-builds")
+    region = current_app.config.get("LCK_UNREAL_REGION", "eu-central-1")
+    return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
 def list_reports() -> List[Dict[str, Any]]:
     """Return REPORT_BUCKET + CC_REPORT_PREFIX (GCS)."""
     client = gcs_client()

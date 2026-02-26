@@ -66,6 +66,7 @@
         <a href="/" class="nav-link {% if current_endpoint == 'ui.index' %}nav-link-active{% endif %}">Builds</a>
         <a href="/crash-logs/" class="nav-link {% if current_endpoint.startswith('crash_logs') %}nav-link-active{% endif %}">Crash Logs</a>
         <a href="/unreal-builds/" class="nav-link {% if current_endpoint.startswith('legacy_unreal') %}nav-link-active{% endif %}">Legacy Upload</a>
+        <a href="/deploy-quest/" class="nav-link {% if current_endpoint.startswith('deploy_quest') %}nav-link-active{% endif %}">Deploy Quest</a>
         <a href="/api/stats" class="nav-link {% if current_endpoint == 'test_results_api.test_stats' %}nav-link-active{% endif %}">Stats API</a>
 
         <div class="w-px h-5 bg-slate-200 mx-2"></div>
@@ -94,6 +95,7 @@
         <a href="/" class="block px-3 py-2 rounded-md {% if current_endpoint == 'ui.index' %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Builds</a>
         <a href="/crash-logs/" class="block px-3 py-2 rounded-md {% if current_endpoint.startswith('crash_logs') %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Crash Logs</a>
         <a href="/unreal-builds/" class="block px-3 py-2 rounded-md {% if current_endpoint.startswith('legacy_unreal') %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Legacy Upload</a>
+        <a href="/deploy-quest/" class="block px-3 py-2 rounded-md {% if current_endpoint.startswith('deploy_quest') %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Deploy Quest</a>
         <a href="/api/stats" class="block px-3 py-2 rounded-md {% if current_endpoint == 'test_results_api.test_stats' %}bg-slate-100 font-medium{% else %}hover:bg-slate-50{% endif %}">Stats API</a>
 
         <div class="border-t my-2"></div>

@@ -166,6 +166,48 @@ def legacy_unreal_public_url(key: str) -> str:
     region = current_app.config.get("LCK_UNREAL_REGION", "eu-central-1")
     return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
 
+def list_gcs_mygame_builds(days: int = 14) -> List[Dict[str, Any]]:
+    """List recent MyGame Android builds from GCS for deploy-quest."""
+    client = gcs_client()
+    bucket = client.bucket("unreal-builds")
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    builds = []
+
+    for blob in bucket.list_blobs(prefix="MyGame/", projection="full"):
+        if not blob.name.endswith(".zip"):
+            continue
+        # Only Android variants (contain "mygame-" in filename)
+        filename = blob.name.split("/")[-1]
+        if "mygame-" not in filename:
+            continue
+        if blob.time_created and blob.time_created < since:
+            continue
+
+        # Parse path: MyGame/{branch}/{version}/{zipname}
+        parts = blob.name.split("/")
+        if len(parts) < 4:
+            continue
+
+        branch = parts[1]
+        version = parts[2]
+        # Extract variant from filename: MyGame_{variant}_v{version}_{config}.zip
+        variant = filename.split("_", 1)[1].rsplit("_v", 1)[0] if "_" in filename else filename
+
+        builds.append({
+            "gcs_path": blob.name,
+            "filename": filename,
+            "branch": branch,
+            "version": version,
+            "variant": variant,
+            "channel": variant,
+            "size": blob.size,
+            "time_created": blob.time_created,
+        })
+
+    builds.sort(key=lambda x: x["time_created"], reverse=True)
+    return builds
+
+
 def list_reports() -> List[Dict[str, Any]]:
     """Return REPORT_BUCKET + CC_REPORT_PREFIX (GCS)."""
     client = gcs_client()

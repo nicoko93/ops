@@ -19,7 +19,8 @@ from .auth import oauth, login_required, domain_allowed
 from .storage import (
     list_gcs_recent_buckets, list_s3_recent, list_gcs_bucket,
     gcs_signed_url, s3_signed_url, list_reports,
-    s3_presigned_put_url, list_legacy_unreal_files, legacy_unreal_public_url
+    s3_presigned_put_url, list_legacy_unreal_files, legacy_unreal_public_url,
+    list_gcs_mygame_builds,
 )
 from .models import TestRun, TestResult, SessionLocal
 from .crash_logs import (
@@ -527,3 +528,85 @@ def presign():
         import traceback
         current_app.logger.error(f"Error generating presigned URL: {e}\n{traceback.format_exc()}")
         return jsonify({"error": f"Failed to generate upload URL: {str(e)}"}), 500
+
+
+# ---------- Deploy Quest ----------
+deploy_quest_bp = Blueprint("deploy_quest", __name__, url_prefix="/deploy-quest")
+
+KNOWN_CHANNELS = {
+    "mygame-variant-a",
+    "mygame-variant-b",
+    "mygame-variant-c",
+    "mygame-variant-d",
+}
+
+
+@deploy_quest_bp.route("/")
+@login_required
+def deploy_page():
+    builds = list_gcs_mygame_builds()
+
+    # Deep-link support: highlight a specific build from Discord
+    highlight_gcs_path = request.args.get("gcs_path", "").strip()
+    highlight_channel = request.args.get("channel", "").strip()
+
+    return render_template(
+        "deploy_quest/deploy.html",
+        builds=builds,
+        highlight_gcs_path=highlight_gcs_path,
+        highlight_channel=highlight_channel,
+        user=session.get("user"),
+    )
+
+
+@deploy_quest_bp.route("/builds")
+@login_required
+def builds_partial():
+    """HTMX partial for refreshing the builds table."""
+    builds = list_gcs_mygame_builds()
+    return render_template("deploy_quest/_builds_table.html", builds=builds)
+
+
+@deploy_quest_bp.route("/trigger", methods=["POST"])
+@login_required
+def trigger_deploy():
+    """Trigger Jenkins Deploy-Quest pipeline via Generic Webhook Trigger."""
+    data = request.get_json() or {}
+    gcs_path = data.get("gcs_path", "").strip()
+    channel = data.get("channel", "").strip()
+    variant_name = data.get("variant_name", "").strip()
+
+    if not gcs_path or not channel:
+        return jsonify({"error": "gcs_path and channel are required"}), 400
+
+    if not gcs_path.startswith("MyGame/"):
+        return jsonify({"error": "Invalid gcs_path"}), 400
+
+    if channel not in KNOWN_CHANNELS:
+        return jsonify({"error": f"Unknown channel: {channel}"}), 400
+
+    jenkins_url = current_app.config["JENKINS_URL"]
+    token = current_app.config["JENKINS_DEPLOY_TOKEN"]
+
+    try:
+        resp = requests.post(
+            f"{jenkins_url}/generic-webhook-trigger/invoke",
+            params={"token": token},
+            json={
+                "GCS_ZIP_PATH": f"gs://unreal-builds/{gcs_path}",
+                "CHANNEL": channel,
+                "VARIANT_NAME": variant_name or channel,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+    except Exception as e:
+        current_app.logger.error(f"Jenkins trigger failed: {e}")
+        return jsonify({"error": "Failed to trigger Jenkins deploy"}), 502
+
+    user_email = session.get("user", {}).get("email", "unknown")
+    current_app.logger.info(
+        "Deploy-Quest triggered by %s: channel=%s gcs_path=%s",
+        user_email, channel, gcs_path,
+    )
+    return jsonify({"success": True, "message": "Deployment triggered"})

@@ -1,0 +1,61 @@
+{% if builds %}
+<table id="builds-table" class="w-full" data-sortable>
+  <thead>
+    <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b">
+      <th class="px-4 py-3" data-type="text">Branch</th>
+      <th class="px-4 py-3" data-type="text">Version</th>
+      <th class="px-4 py-3" data-type="text">Variant</th>
+      <th class="px-4 py-3" data-type="date">Date</th>
+      <th class="px-4 py-3" data-type="number">Size</th>
+      <th class="px-4 py-3 text-right">Action</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y">
+    {% for build in builds %}
+    <tr class="hover:bg-slate-50">
+      <td class="px-4 py-3 text-sm">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+          {{ build.branch }}
+        </span>
+      </td>
+      <td class="px-4 py-3 text-sm font-mono text-slate-700">v{{ build.version }}</td>
+      <td class="px-4 py-3 text-sm">
+        <span class="font-medium text-slate-700">{{ build.variant }}</span>
+      </td>
+      <td class="px-4 py-3 text-sm text-slate-500" data-utc="{{ build.time_created.strftime('%Y-%m-%d %H:%M:%S') }}">
+        {{ build.time_created.strftime('%Y-%m-%d %H:%M') }}
+      </td>
+      <td class="px-4 py-3 text-sm text-slate-500">
+        {% set size_mb = build.size / 1024 / 1024 %}
+        {% if size_mb >= 1024 %}
+          {{ "%.2f"|format(size_mb / 1024) }} GB
+        {% elif size_mb >= 1 %}
+          {{ "%.1f"|format(size_mb) }} MB
+        {% else %}
+          {{ "%.1f"|format(build.size / 1024) }} KB
+        {% endif %}
+      </td>
+      <td class="px-4 py-3 text-right">
+        <button class="btn-primary btn-sm deploy-btn"
+                data-gcs-path="{{ build.gcs_path }}"
+                data-channel="{{ build.channel }}"
+                data-variant="{{ build.variant }}"
+                onclick="deployToQuest(this.dataset.gcsPath, this.dataset.channel, this.dataset.variant, this)">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          Deploy
+        </button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="px-4 py-8 text-center text-slate-500">
+  <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+  </svg>
+  <p>No Android builds found in the last 14 days</p>
+</div>
+{% endif %}

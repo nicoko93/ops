@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Deploy to Quest - Build Portal{% endblock %}
+
+{% block head %}
+<script defer src="{{ url_for('static', filename='deploy_quest.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Deploy to Quest</h1>
+      <p class="text-slate-500 mt-1">Deploy Android builds to AppLab channels</p>
+    </div>
+  </div>
+
+  {% if highlight_gcs_path and highlight_channel %}
+  <!-- Deep-link confirmation banner -->
+  <div id="deploy-banner" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="font-medium text-blue-900">Deploy to AppLab?</p>
+        <p class="text-sm text-blue-700 mt-1">
+          <span class="font-mono">{{ highlight_channel }}</span>
+          &mdash; {{ highlight_gcs_path.split('/')[-1] }}
+        </p>
+      </div>
+      <button class="btn-primary"
+              onclick="deployToQuest('{{ highlight_gcs_path }}', '{{ highlight_channel }}', '{{ highlight_channel }}')">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        Deploy Now
+      </button>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Builds Table -->
+  <div class="bg-white border rounded-lg overflow-hidden">
+    <div class="px-4 py-3 border-b bg-slate-50 flex items-center justify-between gap-4">
+      <h2 class="font-medium shrink-0">Recent Android Builds</h2>
+      <div class="flex items-center gap-2">
+        <input type="text" placeholder="Filter builds..."
+               data-table-filter="#builds-table"
+               class="px-3 py-1.5 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 w-48" />
+        <button hx-get="{{ url_for('deploy_quest.builds_partial') }}"
+                hx-target="#builds-table-container"
+                hx-swap="innerHTML"
+                class="btn-ghost btn-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+    <div id="builds-table-container">
+      {% include "deploy_quest/_builds_table.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}

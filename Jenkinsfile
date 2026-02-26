@@ -92,7 +92,8 @@ spec:
           }
 
           def shortSha = (env.GIT_COMMIT ?: 'unknown').take(8)
-          def channel  = (env.BRANCH_NAME == 'master') ? 'prod' : (env.BRANCH_NAME == 'dev' ? 'dev' : "ci-${env.BRANCH_NAME}")
+          def safeBranch = env.BRANCH_NAME.replaceAll('[^A-Za-z0-9_.-]', '-')
+          def channel  = (env.BRANCH_NAME == 'master') ? 'prod' : (env.BRANCH_NAME == 'dev' ? 'dev' : "ci-${safeBranch}")
           env.IMAGE_TAG = "${channel}-${shortSha}"
           env.IMAGE_REPOSITORY = "${env.GCP_AR_REGION}-docker.pkg.dev/${env.GCP_AR_PROJECT}/${env.GCP_AR_REPO}/${env.APP_IMAGE_NAME}"
 

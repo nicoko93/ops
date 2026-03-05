@@ -189,9 +189,11 @@ def list_gcs_mygame_builds(days: int = 14) -> List[Dict[str, Any]]:
             continue
 
         branch = parts[1]
-        version = parts[2]
-        # Extract variant from filename: MyGame_{variant}_v{version}_{config}.zip
+        # Extract variant and version from filename: MyGame_{variant}_v{version}_{config}.zip
+        # Each Android variant has its own version code baked into the APK and filename.
         variant = filename.split("_", 1)[1].rsplit("_v", 1)[0] if "_" in filename else filename
+        name_parts = filename.rsplit("_v", 1)
+        version = name_parts[1].split("_")[0] if len(name_parts) == 2 else parts[2]
 
         builds.append({
             "gcs_path": blob.name,

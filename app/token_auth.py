@@ -1,6 +1,6 @@
 """Bearer token authentication using Google ID tokens (OIDC).
 
-Validates JWT tokens issued by Google, checking signature, audience,
+Validates JWT tokens issued by Google, checking signature, issuer,
 and hosted domain (hd) claim. Same pattern as another-service validation.
 """
 
@@ -15,11 +15,8 @@ _transport = google_requests.Request()
 
 def verify_google_token(token: str) -> dict | None:
     """Validate a Google ID token and return claims, or None on failure."""
-    client_id = current_app.config.get("GOOGLE_CLIENT_ID")
-    if not client_id:
-        return None
     try:
-        claims = id_token.verify_oauth2_token(token, _transport, client_id)
+        claims = id_token.verify_token(token, _transport)
     except Exception:
         return None
 

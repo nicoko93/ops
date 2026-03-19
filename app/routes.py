@@ -28,6 +28,7 @@ from .crash_logs import (
     get_crash_log_content, get_crash_log_signed_url, parse_crash_log_path,
     get_sibling_logs, get_rancher_links
 )
+from .token_auth import require_bearer_token
 
 # ---------- UI ----------
 ui_bp = Blueprint("ui", __name__)
@@ -466,6 +467,35 @@ def view_log(key):
 def download_log(key):
     url = get_crash_log_signed_url(key)
     return redirect(url)
+
+
+# ---------- Crash Logs API (Bearer token auth for agents) ----------
+crash_logs_api = Blueprint("crash_logs_api", __name__, url_prefix="/api/crash-logs")
+
+
+@crash_logs_api.route("/")
+@crash_logs_api.route("/<env>/")
+@crash_logs_api.route("/<env>/<namespace>/")
+@require_bearer_token
+def api_list_logs(env=None, namespace=None):
+    days = request.args.get("days", 7, type=int)
+    logs = list_crash_logs(env=env, namespace=namespace, days=days)
+    return jsonify(logs)
+
+
+@crash_logs_api.route("/view/<path:key>")
+@require_bearer_token
+def api_view_log(key):
+    content = get_crash_log_content(key)
+    meta = parse_crash_log_path(key)
+    return jsonify({"content": content, "meta": meta, "key": key})
+
+
+@crash_logs_api.route("/download/<path:key>")
+@require_bearer_token
+def api_download_log(key):
+    url = get_crash_log_signed_url(key)
+    return jsonify({"url": url})
 
 
 # ---------- Legacy Unreal Upload ----------

@@ -20,7 +20,7 @@ from .storage import (
     list_gcs_recent_buckets, list_s3_recent, list_gcs_bucket,
     gcs_signed_url, s3_signed_url, list_reports,
     s3_presigned_put_url, list_legacy_unreal_files, legacy_unreal_public_url,
-    list_gcs_mygame_builds,
+    list_gcs_mygame_builds, discover_gcs_buckets,
 )
 from .models import TestRun, TestResult, SessionLocal
 from .crash_logs import (
@@ -104,10 +104,24 @@ def index():
     recent = list_gcs_recent_buckets(days, limit) + list_s3_recent(days, limit)
     recent.sort(key=lambda x: x["time_created"], reverse=True)
 
+    # Dynamic bucket discovery or static list
+    if current_app.config.get("GCS_AUTO_DISCOVER"):
+        active_buckets, inactive_buckets = discover_gcs_buckets()
+        bucket_names = [b["name"] for b in active_buckets]
+    else:
+        bucket_names = current_app.config["GCS_BUCKETS"]
+        active_buckets, inactive_buckets = None, None
+
     sections = []
-    for b in current_app.config["GCS_BUCKETS"]:
+    for b in bucket_names:
         items = list_gcs_bucket(b)
         sections.append((b, items))
+
+    # Build inactive sections only when discovery is active
+    inactive_sections = []
+    if inactive_buckets:
+        for b in inactive_buckets:
+            inactive_sections.append((b["name"], b["last_activity"]))
 
     reports = list_reports()
 
@@ -115,9 +129,19 @@ def index():
         "index.html",
         recent=recent,
         sections=sections,
+        inactive_sections=inactive_sections,
+        auto_discover=current_app.config.get("GCS_AUTO_DISCOVER"),
         reports=reports,
         user=session.get("user"),
     )
+
+@ui_bp.route("/bucket/<bucket>/files")
+@login_required
+def bucket_files(bucket):
+    """HTMX partial: load a bucket's file list on demand."""
+    items = list_gcs_bucket(bucket)
+    return render_template("_table_builds.html", items=items)
+
 
 @ui_bp.route("/download/gcs/<bucket>/<path:key>")
 @login_required

@@ -1,9 +1,19 @@
+import logging
+import threading
+import time
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 from google.cloud import storage
 from google.oauth2 import service_account
 import boto3
 from flask import current_app
+
+logger = logging.getLogger(__name__)
+
+# ---------- In-memory cache for bucket discovery ----------
+_bucket_cache: Dict[str, Any] = {"data": None, "ts": 0.0}
+_bucket_cache_lock = threading.Lock()
+
 
 def gcs_client():
     creds = service_account.Credentials.from_service_account_file(
@@ -25,6 +35,74 @@ def _extract_gcs_meta(blob) -> Dict[str, Any]:
         "environment":  m.get("environment"),
         "branch":       m.get("branch"),
     }
+
+def _check_bucket_recent_activity(client, bucket_name: str, since: datetime) -> Optional[datetime]:
+    """Sample a bucket to find the most recent blob. Returns its timestamp or None."""
+    try:
+        bucket = client.bucket(bucket_name)
+        # GCS doesn't sort by date, so we sample the first page and check timestamps.
+        # For most build buckets this is enough since recent uploads appear quickly.
+        most_recent = None
+        for blob in bucket.list_blobs(max_results=200):
+            if blob.time_created and (most_recent is None or blob.time_created > most_recent):
+                most_recent = blob.time_created
+        return most_recent
+    except Exception as e:
+        logger.warning("Cannot inspect bucket %s: %s", bucket_name, e)
+        return None
+
+
+def discover_gcs_buckets() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Discover all GCS buckets in the project and classify by recent activity.
+
+    Returns (active_buckets, inactive_buckets) where each entry is:
+        {"name": str, "last_activity": datetime|None}
+
+    Active = has a blob created within the last 30 days.
+    Results are cached for GCS_DISCOVER_CACHE_TTL seconds.
+    """
+    ttl = current_app.config.get("GCS_DISCOVER_CACHE_TTL", 300)
+
+    with _bucket_cache_lock:
+        if _bucket_cache["data"] is not None and (time.time() - _bucket_cache["ts"]) < ttl:
+            return _bucket_cache["data"]
+
+    exclude = set(current_app.config.get("GCS_EXCLUDE_BUCKETS", []))
+    client = gcs_client()
+    since = datetime.now(timezone.utc) - timedelta(days=30)
+
+    active, inactive = [], []
+    try:
+        all_buckets = list(client.list_buckets())
+    except Exception as e:
+        logger.error("Failed to list GCS buckets: %s — falling back to GCS_BUCKETS", e)
+        # Fallback: treat configured buckets as active
+        return (
+            [{"name": b, "last_activity": None} for b in current_app.config["GCS_BUCKETS"]],
+            [],
+        )
+
+    for bucket in all_buckets:
+        if bucket.name in exclude:
+            continue
+        last = _check_bucket_recent_activity(client, bucket.name, since)
+        entry = {"name": bucket.name, "last_activity": last}
+        if last and last > since:
+            active.append(entry)
+        else:
+            inactive.append(entry)
+
+    # Sort active by most recent first, inactive alphabetically
+    active.sort(key=lambda b: b["last_activity"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    inactive.sort(key=lambda b: b["name"])
+
+    result = (active, inactive)
+    with _bucket_cache_lock:
+        _bucket_cache["data"] = result
+        _bucket_cache["ts"] = time.time()
+
+    return result
+
 
 def list_gcs_recent_buckets(days: int, limit: int) -> List[Dict[str, Any]]:
     client = gcs_client()

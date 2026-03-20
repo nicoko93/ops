@@ -17,12 +17,12 @@ class Config:
     GCP_SA_FILE = os.getenv("GCP_SA_FILE", "/var/secrets/google/key.json")
 
     # Buckets GCS
+    # When GCS_AUTO_DISCOVER=1, all project buckets are scanned dynamically.
+    # GCS_BUCKETS then acts as a fallback if discovery fails.
+    GCS_AUTO_DISCOVER = os.getenv("GCS_AUTO_DISCOVER", "1") in ("1", "true", "yes")
     GCS_BUCKETS = os.getenv(
         "GCS_BUCKETS",
         ",".join([
-#            "obi-spatialprototype-staging",
-#            "obi-spatialprototype-production",
-#            "obi-spatialprototype-testing",
             "game-staging",
             "game-production",
             "game-testing",
@@ -35,6 +35,12 @@ class Config:
             "sdk-builds"
         ])
     ).split(",")
+    # Comma-separated bucket names to hide from the UI (e.g. infra buckets, logs, etc.)
+    GCS_EXCLUDE_BUCKETS = [
+        b.strip() for b in os.getenv("GCS_EXCLUDE_BUCKETS", "").split(",") if b.strip()
+    ]
+    # How long (seconds) to cache the bucket discovery result
+    GCS_DISCOVER_CACHE_TTL = int(os.getenv("GCS_DISCOVER_CACHE_TTL", "300"))
 
     # AWS S3 (optionnel)
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")

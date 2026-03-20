@@ -4,23 +4,38 @@
 <div class="flex gap-6">
   <!-- Sidebar gauche : index des buckets -->
   <aside class="hidden md:block w-64 shrink-0">
-    <nav class="sticky top-24 space-y-2">
+    <nav class="sticky top-24 space-y-2 max-h-[calc(100vh-8rem)] overflow-y-auto">
       <div class="text-xs uppercase tracking-wide text-slate-500">Quick nav</div>
-      <a href="#latest" class="block px-3 py-2 rounded hover:bg-slate-100">🕒 Last builds</a>
+      <a href="#latest" class="block px-3 py-2 rounded hover:bg-slate-100">Last builds</a>
 
-      <div class="mt-4 text-xs uppercase tracking-wide text-slate-500">Buckets</div>
+      <div class="mt-4 text-xs uppercase tracking-wide text-slate-500">
+        {% if auto_discover %}Active buckets{% else %}Buckets{% endif %}
+      </div>
       <div class="space-y-1">
         {% for bucket, bucket_items in sections %}
           {% set anchor_id = 'bucket-' ~ bucket|replace('.','-')|replace('_','-')|replace('/','-') %}
           <a href="#{{ anchor_id }}"
              class="flex items-center justify-between px-3 py-2 rounded hover:bg-slate-100">
-            <span class="truncate">🪣 {{ bucket }}</span>
+            <span class="truncate">{{ bucket }}</span>
             <span class="ml-2 inline-flex items-center rounded bg-slate-200 px-2 text-xs">{{ bucket_items|length }}</span>
           </a>
         {% endfor %}
       </div>
 
-      <a href="#reports" class="block mt-4 px-3 py-2 rounded hover:bg-slate-100">📄 Reports</a>
+      {% if inactive_sections %}
+      <div class="mt-4 text-xs uppercase tracking-wide text-slate-500">Inactive buckets</div>
+      <div class="space-y-1">
+        {% for bucket_name, last_activity in inactive_sections %}
+          {% set anchor_id = 'bucket-' ~ bucket_name|replace('.','-')|replace('_','-')|replace('/','-') %}
+          <a href="#{{ anchor_id }}"
+             class="flex items-center justify-between px-3 py-2 rounded hover:bg-slate-100 text-slate-400">
+            <span class="truncate">{{ bucket_name }}</span>
+          </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <a href="#reports" class="block mt-4 px-3 py-2 rounded hover:bg-slate-100">Reports</a>
     </nav>
   </aside>
 
@@ -35,15 +50,17 @@
       </div>
     </section>
 
-    <!-- Buckets GCS -->
+    <!-- Active Buckets GCS -->
     <section id="gcs" class="space-y-8">
-      <h2 class="text-xl font-semibold">Buckets GCS</h2>
+      <h2 class="text-xl font-semibold">
+        {% if auto_discover %}Active buckets <span class="text-sm font-normal text-slate-500">(builds in the last 30 days)</span>{% else %}Buckets GCS{% endif %}
+      </h2>
 
       {% for bucket, bucket_items in sections %}
         {% set anchor_id = 'bucket-' ~ bucket|replace('.','-')|replace('_','-')|replace('/','-') %}
         <div id="{{ anchor_id }}" class="mt-4 scroll-mt-24">
           <h3 class="font-medium mb-2 flex items-center">
-            🪣 <span class="ml-2">Bucket: {{ bucket }}</span>
+            <span>Bucket: {{ bucket }}</span>
             <span class="ml-3 text-xs rounded bg-slate-200 px-2">{{ bucket_items|length }} objects</span>
           </h3>
           <div class="overflow-auto border rounded">
@@ -53,6 +70,43 @@
         </div>
       {% endfor %}
     </section>
+
+    {% if inactive_sections %}
+    <!-- Inactive Buckets (collapsible, lazy-loaded via HTMX) -->
+    <section id="inactive-gcs" class="mt-10 scroll-mt-24">
+      <details class="group">
+        <summary class="text-xl font-semibold cursor-pointer select-none flex items-center gap-2">
+          <svg class="w-5 h-5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          Inactive buckets
+          <span class="text-sm font-normal text-slate-500">({{ inactive_sections|length }} buckets, no builds in last 30 days)</span>
+        </summary>
+
+        <div class="mt-4 space-y-6">
+          {% for bucket_name, last_activity in inactive_sections %}
+            {% set anchor_id = 'bucket-' ~ bucket_name|replace('.','-')|replace('_','-')|replace('/','-') %}
+            <div id="{{ anchor_id }}" class="scroll-mt-24">
+              <h3 class="font-medium mb-2 flex items-center text-slate-500">
+                <span>Bucket: {{ bucket_name }}</span>
+                {% if last_activity %}
+                  <span class="ml-3 text-xs rounded bg-slate-100 px-2">last activity: {{ last_activity.strftime('%Y-%m-%d') }}</span>
+                {% else %}
+                  <span class="ml-3 text-xs rounded bg-slate-100 px-2">no recent activity</span>
+                {% endif %}
+              </h3>
+              <div class="overflow-auto border rounded"
+                   hx-get="/bucket/{{ bucket_name }}/files"
+                   hx-trigger="revealed"
+                   hx-swap="innerHTML">
+                <p class="p-4 text-sm text-slate-400">Loading...</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+    </section>
+    {% endif %}
 
     <!-- Reports -->
     <section id="reports" class="mt-10 scroll-mt-24">

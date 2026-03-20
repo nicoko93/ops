@@ -85,10 +85,6 @@ class Config:
         if ":" in pair
     }
 
-    # Legacy Unreal Upload (S3)
-    LCK_UNREAL_BUCKET = os.getenv("LCK_UNREAL_BUCKET", "unreal-builds")
-    LCK_UNREAL_REGION = os.getenv("LCK_UNREAL_REGION", "eu-central-1")
-
     # Deploy-Quest (Jenkins trigger)
     JENKINS_URL          = os.getenv("JENKINS_URL", "https://jenkins-production.example.com")
     JENKINS_DEPLOY_TOKEN = os.getenv("JENKINS_DEPLOY_TOKEN", "deploy-quest")

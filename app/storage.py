@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Tuple
 from google.cloud import storage
@@ -10,9 +11,15 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-# ---------- In-memory cache for bucket discovery ----------
+# ---------- In-memory caches ----------
 _bucket_cache: Dict[str, Any] = {"data": None, "ts": 0.0}
 _bucket_cache_lock = threading.Lock()
+
+_listing_cache: Dict[str, Any] = {}  # key=bucket_name -> {"data": [...], "ts": float}
+_listing_cache_lock = threading.Lock()
+
+_reports_cache: Dict[str, Any] = {"data": None, "ts": 0.0}
+_reports_cache_lock = threading.Lock()
 
 
 def gcs_client():
@@ -21,9 +28,15 @@ def gcs_client():
     )
     return storage.Client(credentials=creds, project=current_app.config["GCP_PROJECT_ID"])
 
+
+def _make_gcs_client(sa_file: str, project_id: str):
+    """Create a GCS client without requiring Flask app context (for threads)."""
+    creds = service_account.Credentials.from_service_account_file(sa_file)
+    return storage.Client(credentials=creds, project=project_id)
+
+
 def _extract_gcs_meta(blob) -> Dict[str, Any]:
-    """Lit les métadonnées custom (x-goog-meta-*) déjà présentes sur le blob.
-    Nécessite que list_blobs(...) ait été appelé avec projection='full'."""
+    """Read custom metadata (x-goog-meta-*) from a blob."""
     m = getattr(blob, "metadata", None) or {}
     commit = m.get("commit")
     return {
@@ -36,12 +49,11 @@ def _extract_gcs_meta(blob) -> Dict[str, Any]:
         "branch":       m.get("branch"),
     }
 
+
 def _check_bucket_recent_activity(client, bucket_name: str, since: datetime) -> Optional[datetime]:
     """Sample a bucket to find the most recent blob. Returns its timestamp or None."""
     try:
         bucket = client.bucket(bucket_name)
-        # GCS doesn't sort by date, so we sample the first page and check timestamps.
-        # For most build buckets this is enough since recent uploads appear quickly.
         most_recent = None
         for blob in bucket.list_blobs(max_results=200):
             if blob.time_created and (most_recent is None or blob.time_created > most_recent):
@@ -76,7 +88,6 @@ def discover_gcs_buckets() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         all_buckets = list(client.list_buckets())
     except Exception as e:
         logger.error("Failed to list GCS buckets: %s — falling back to GCS_BUCKETS", e)
-        # Fallback: treat configured buckets as active
         return (
             [{"name": b, "last_activity": None} for b in current_app.config["GCS_BUCKETS"]],
             [],
@@ -92,7 +103,6 @@ def discover_gcs_buckets() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         else:
             inactive.append(entry)
 
-    # Sort active by most recent first, inactive alphabetically
     active.sort(key=lambda b: b["last_activity"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     inactive.sort(key=lambda b: b["name"])
 
@@ -104,37 +114,17 @@ def discover_gcs_buckets() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     return result
 
 
-def list_gcs_recent_buckets(days: int, limit: int) -> List[Dict[str, Any]]:
-    client = gcs_client()
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+def _fetch_gcs_bucket(sa_file: str, project_id: str, bucket_name: str) -> List[Dict[str, Any]]:
+    """Fetch a single bucket listing (can run outside Flask app context)."""
+    creds = service_account.Credentials.from_service_account_file(sa_file)
+    client = storage.Client(credentials=creds, project=project_id)
+    bucket_ref = client.bucket(bucket_name)
     out: List[Dict[str, Any]] = []
-    for bucket_name in current_app.config["GCS_BUCKETS"]:
-        bucket = client.bucket(bucket_name)
-        # projection='full' pour inclure metadata dans la réponse de listing
-        for blob in bucket.list_blobs(projection="full"):
-            if blob.time_created and blob.time_created > since:
-                it = {
-                    "provider": "gcs",
-                    "bucket": bucket_name,
-                    "key": blob.name,
-                    "name": (blob.name.split("/")[-1] or blob.name),
-                    "time_created": blob.time_created,
-                    "size": blob.size,
-                }
-                it["meta"] = _extract_gcs_meta(blob)
-                out.append(it)
-    out.sort(key=lambda x: x["time_created"], reverse=True)
-    return out[:limit]
-
-def list_gcs_bucket(bucket: str) -> List[Dict[str, Any]]:
-    client = gcs_client()
-    bucket_ref = client.bucket(bucket)
-    out: List[Dict[str, Any]] = []
-    # projection='full' pour inclure metadata dans la réponse de listing
-    for blob in bucket_ref.list_blobs(projection="full"):
+    # noAcl is the default and still includes custom metadata, faster than 'full'
+    for blob in bucket_ref.list_blobs():
         it = {
             "provider": "gcs",
-            "bucket": bucket,
+            "bucket": bucket_name,
             "key": blob.name,
             "name": (blob.name.split("/")[-1] or blob.name),
             "time_created": blob.time_created,
@@ -142,8 +132,82 @@ def list_gcs_bucket(bucket: str) -> List[Dict[str, Any]]:
         }
         it["meta"] = _extract_gcs_meta(blob)
         out.append(it)
-    out.sort(key=lambda x: x["time_created"], reverse=True)
+    out.sort(key=lambda x: x["time_created"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     return out
+
+
+def list_gcs_bucket(bucket_name: str) -> List[Dict[str, Any]]:
+    """List all objects in a GCS bucket, with TTL caching."""
+    ttl = current_app.config.get("GCS_LISTING_CACHE_TTL", 120)
+
+    with _listing_cache_lock:
+        entry = _listing_cache.get(bucket_name)
+        if entry and (time.time() - entry["ts"]) < ttl:
+            return entry["data"]
+
+    sa_file = current_app.config["GCP_SA_FILE"]
+    project_id = current_app.config["GCP_PROJECT_ID"]
+    data = _fetch_gcs_bucket(sa_file, project_id, bucket_name)
+
+    with _listing_cache_lock:
+        _listing_cache[bucket_name] = {"data": data, "ts": time.time()}
+
+    return data
+
+
+def list_gcs_buckets_parallel(bucket_names: List[str]) -> List[Tuple[str, List[Dict[str, Any]]]]:
+    """Fetch multiple bucket listings in parallel, using cache where possible."""
+    ttl = current_app.config.get("GCS_LISTING_CACHE_TTL", 120)
+    sa_file = current_app.config["GCP_SA_FILE"]
+    project_id = current_app.config["GCP_PROJECT_ID"]
+
+    results: Dict[str, List[Dict[str, Any]]] = {}
+    to_fetch: List[str] = []
+
+    # Check cache first
+    with _listing_cache_lock:
+        for name in bucket_names:
+            entry = _listing_cache.get(name)
+            if entry and (time.time() - entry["ts"]) < ttl:
+                results[name] = entry["data"]
+            else:
+                to_fetch.append(name)
+
+    # Fetch uncached buckets in parallel
+    if to_fetch:
+        workers = min(len(to_fetch), 8)
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(_fetch_gcs_bucket, sa_file, project_id, b): b
+                for b in to_fetch
+            }
+            for future in as_completed(futures):
+                b = futures[future]
+                try:
+                    data = future.result()
+                    results[b] = data
+                    with _listing_cache_lock:
+                        _listing_cache[b] = {"data": data, "ts": time.time()}
+                except Exception as e:
+                    logger.error("Failed to list bucket %s: %s", b, e)
+                    results[b] = []
+
+    return [(b, results.get(b, [])) for b in bucket_names]
+
+
+def list_gcs_recent_from_sections(
+    sections: List[Tuple[str, List[Dict[str, Any]]]], days: int, limit: int
+) -> List[Dict[str, Any]]:
+    """Extract recent GCS builds from already-fetched bucket listings (no extra API calls)."""
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    out = []
+    for _bucket_name, items in sections:
+        for it in items:
+            if it.get("time_created") and it["time_created"] > since:
+                out.append(it)
+    out.sort(key=lambda x: x["time_created"], reverse=True)
+    return out[:limit]
+
 
 def s3_client():
     return boto3.client(
@@ -197,24 +261,20 @@ def list_gcs_mygame_builds(days: int = 14) -> List[Dict[str, Any]]:
     since = datetime.now(timezone.utc) - timedelta(days=days)
     builds = []
 
-    for blob in bucket.list_blobs(prefix="MyGame/", projection="full"):
+    for blob in bucket.list_blobs(prefix="MyGame/"):
         if not blob.name.endswith(".zip"):
             continue
-        # Only Android variants (contain "mygame-" in filename)
         filename = blob.name.split("/")[-1]
         if "mygame-" not in filename:
             continue
         if blob.time_created and blob.time_created < since:
             continue
 
-        # Parse path: MyGame/{branch}/{version}/{zipname}
         parts = blob.name.split("/")
         if len(parts) < 4:
             continue
 
         branch = parts[1]
-        # Extract variant and version from filename: MyGame_{variant}_v{version}_{config}.zip
-        # Each Android variant has its own version code baked into the APK and filename.
         variant = filename.split("_", 1)[1].rsplit("_v", 1)[0] if "_" in filename else filename
         name_parts = filename.rsplit("_v", 1)
         version = name_parts[1].split("_")[0] if len(name_parts) == 2 else parts[2]
@@ -235,11 +295,16 @@ def list_gcs_mygame_builds(days: int = 14) -> List[Dict[str, Any]]:
 
 
 def list_reports() -> List[Dict[str, Any]]:
-    """Return REPORT_BUCKET + CC_REPORT_PREFIX (GCS)."""
+    """Return REPORT_BUCKET + CC_REPORT_PREFIX (GCS). Cached."""
+    ttl = current_app.config.get("GCS_LISTING_CACHE_TTL", 120)
+
+    with _reports_cache_lock:
+        if _reports_cache["data"] is not None and (time.time() - _reports_cache["ts"]) < ttl:
+            return _reports_cache["data"]
+
     client = gcs_client()
     reports: List[Dict[str, Any]] = []
 
-    # Old reports bucket
     bucket_old = client.bucket(current_app.config["REPORT_BUCKET"])
     for b in bucket_old.list_blobs():
         reports.append({
@@ -248,7 +313,6 @@ def list_reports() -> List[Dict[str, Any]]:
             "time_created": b.time_created,
         })
 
-    # Control Center aggregated prefix
     cc_full = current_app.config["CC_REPORT_PREFIX"]
     if "/" in cc_full:
         cc_bucket, cc_prefix = cc_full.split("/", 1)
@@ -266,4 +330,9 @@ def list_reports() -> List[Dict[str, Any]]:
         })
 
     reports.sort(key=lambda x: x["time_created"], reverse=True)
+
+    with _reports_cache_lock:
+        _reports_cache["data"] = reports
+        _reports_cache["ts"] = time.time()
+
     return reports

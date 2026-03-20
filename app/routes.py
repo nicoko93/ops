@@ -17,9 +17,10 @@ import xmltodict
 
 from .auth import oauth, login_required, domain_allowed
 from .storage import (
-    list_gcs_recent_buckets, list_s3_recent, list_gcs_bucket,
+    list_s3_recent, list_gcs_bucket,
     gcs_signed_url, s3_signed_url, list_reports,
     list_gcs_mygame_builds, discover_gcs_buckets,
+    list_gcs_buckets_parallel, list_gcs_recent_from_sections,
 )
 from .models import TestRun, TestResult, SessionLocal
 from .crash_logs import (
@@ -100,8 +101,6 @@ def logged_out():
 def index():
     days = current_app.config["DEFAULT_RECENT_DAYS"]
     limit = current_app.config["MAX_RECENT"]
-    recent = list_gcs_recent_buckets(days, limit) + list_s3_recent(days, limit)
-    recent.sort(key=lambda x: x["time_created"], reverse=True)
 
     # Dynamic bucket discovery or static list
     if current_app.config.get("GCS_AUTO_DISCOVER"):
@@ -111,10 +110,13 @@ def index():
         bucket_names = current_app.config["GCS_BUCKETS"]
         active_buckets, inactive_buckets = None, None
 
-    sections = []
-    for b in bucket_names:
-        items = list_gcs_bucket(b)
-        sections.append((b, items))
+    # Fetch all active bucket listings in parallel (with TTL cache)
+    sections = list_gcs_buckets_parallel(bucket_names)
+
+    # Derive "recent builds" from already-fetched data (no extra API calls)
+    recent = list_gcs_recent_from_sections(sections, days, limit) + list_s3_recent(days, limit)
+    recent.sort(key=lambda x: x["time_created"], reverse=True)
+    recent = recent[:limit]
 
     # Build inactive sections only when discovery is active
     inactive_sections = []

@@ -41,6 +41,8 @@ class Config:
     ]
     # How long (seconds) to cache the bucket discovery result
     GCS_DISCOVER_CACHE_TTL = int(os.getenv("GCS_DISCOVER_CACHE_TTL", "300"))
+    # How long (seconds) to cache individual bucket listings and reports
+    GCS_LISTING_CACHE_TTL = int(os.getenv("GCS_LISTING_CACHE_TTL", "120"))
 
     # AWS S3 (optionnel)
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")

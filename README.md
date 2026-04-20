@@ -1,7 +1,3 @@
-Got it — I’ll answer in **English** from now on. Here’s a clean, copy-pasteable README section in English that covers running the playbook and managing the Ansible Vault.
-
----
-
 # Build Portal 2.0
 
 Flask + Authlib + Tailwind + Postgres, deployable with **Helm** via **Ansible**.

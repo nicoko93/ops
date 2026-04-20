@@ -115,12 +115,10 @@ retry_files_enabled = False
 interpreter_python = auto
 ```
 
-`vault-password.sh`:
-
-```bash
-#!/usr/bin/env bash
-echo "<REDACTED_VAULT_PASSWORD>"
-```
+`vault-password.sh` is an executable that prints the vault password to stdout.
+In this repo it pulls the password from GCP Secret Manager so the password is
+never committed. Provide your own equivalent script or a static password file
+outside the repo.
 
 > **WSL / world-writable note:**
 > Ansible ignores `ansible.cfg` if your working dir is world-writable.

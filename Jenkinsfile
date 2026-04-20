@@ -65,7 +65,8 @@ spec:
     GCLOUD_KEY_PATH  = '/secrets/my-project-abcdef123456.json'
     GOOGLE_APPLICATION_CREDENTIALS = '/secrets/my-project-abcdef123456.json'
 
-    DISCORD_WEBHOOK_URL = "<REDACTED_DISCORD_WEBHOOK>"
+    // Configure a Jenkins "Secret text" credential with ID 'discord-webhook-url'
+    DISCORD_WEBHOOK_URL = credentials('discord-webhook-url')
   }
 
   stages {
